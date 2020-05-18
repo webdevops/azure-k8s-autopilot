@@ -34,11 +34,14 @@ var opts struct {
 
 	// check settings
 	RepairInterval            time.Duration `long:"repair.interval"              env:"REPAIR_INTERVAL"             description:"Duration of check run"                                   default:"30s"`
-	RepairWaitDuration        time.Duration `long:"repair.waitduration"          env:"REPAIR_WAIT_DURATION"        description:"Duration to wait when redeploy will be triggered"        default:"10m"`
+	RepairNotReadyThreshold   time.Duration `long:"repair.notready-threshold"    env:"REPAIR_NOTREADY_THRESHOLD"   description:"Threshold (duration) when the automatic repair should be tried (eg. after 10 mins of NotReady state after last successfull heartbeat)"        default:"10m"`
 	RepairLimit               int           `long:"repair.concurrency"           env:"REPAIR_CONCURRENCY"          description:"How many VMs should be redeployed concurrently"          default:"1"`
 	RepairLockDuration        time.Duration `long:"repair.lockduration"          env:"REPAIR_LOCK_DURATION"        description:"Duration how long should be waited for another redeploy" default:"30m"`
 	RepairAzureVmssAction     string        `long:"repair.azure.vmss.action"     env:"REPAIR_AZURE_VMSS_ACTION"    description:"Defines the action which should be tried to repair the node (VMSS)" default:"redeploy" choice:"restart"  choice:"redeploy" choice:"reimage"`
 	RepairAzureVmAction       string        `long:"repair.azure.vm.action"       env:"REPAIR_AZURE_VM_ACTION"      description:"Defines the action which should be tried to repair the node (VM)"   default:"redeploy" choice:"restart"  choice:"redeploy"`
+
+	// notification
+	Notification []string `long:"notification" env:"NOTIFCATION" description:"Shoutrrr url for notifications (https://containrrr.github.io/shoutrrr/)" env-delim:" "`
 
 	// server settings
 	ServerBind string `long:"bind" env:"SERVER_BIND"  description:"Server address"  default:":8080"`
@@ -87,7 +90,7 @@ func startAzureK8sAutorepair() {
 
 	// general
 	autorepair.Interval = &opts.RepairInterval
-	autorepair.WaitDuration = &opts.RepairWaitDuration
+	autorepair.NotReadyThreshold = &opts.RepairNotReadyThreshold
 	autorepair.LockDuration = &opts.RepairLockDuration
 	autorepair.Limit = opts.RepairLimit
 	autorepair.DryRun = opts.DryRun
@@ -98,6 +101,9 @@ func startAzureK8sAutorepair() {
 	// repair
 	autorepair.Repair.VmssAction = opts.RepairAzureVmssAction
 	autorepair.Repair.VmAction = opts.RepairAzureVmAction
+
+	// notification
+	autorepair.Notification = opts.Notification
 
 	autorepair.Init()
 	autorepair.Run()

@@ -7,6 +7,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
+	"github.com/containrrr/shoutrrr"
 	"github.com/muesli/cache2go"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,7 +31,7 @@ var (
 
 type K8sAutoRepair struct {
 	Interval     *time.Duration
-	WaitDuration *time.Duration
+	NotReadyThreshold *time.Duration
 	LockDuration *time.Duration
 	Limit        int
 	DryRun       bool
@@ -44,6 +45,8 @@ type K8sAutoRepair struct {
 		VmAction       string
 	}
 
+	Notification []string
+
 	azureAuthorizer autorest.Authorizer
 	k8sClient       *kubernetes.Clientset
 
@@ -51,6 +54,7 @@ type K8sAutoRepair struct {
 }
 
 type K8sAutoRepairNodeAzureInfo struct {
+	NodeName string
 	NodeProviderId string
 
 	Subscription  string
@@ -66,7 +70,6 @@ type K8sAutoRepairNodeAzureInfo struct {
 func (r *K8sAutoRepair) Init() {
 	r.initAzure()
 	r.initK8s()
-
 	r.cache = cache2go.Cache("nodeCache")
 }
 
@@ -125,7 +128,7 @@ func (r *K8sAutoRepair) checkAndRepairCluster() {
 		return
 	}
 
-	redeployTriggerSeconds := r.WaitDuration.Seconds()
+	repairThresholdSeconds := r.NotReadyThreshold.Seconds()
 
 	Logger.Verbosef("Found %v nodes in cluster", len(nodeList.Items))
 	Logger.Verbosef("%v locked nodes (repair lock)", r.cache.Count())
@@ -156,7 +159,7 @@ nodeLoop:
 			}
 
 			// check if heartbeat already exceeded threshold
-			if nodeLastHeartbeatAge < redeployTriggerSeconds {
+			if nodeLastHeartbeatAge < repairThresholdSeconds {
 				Logger.Infof("Detected unhealthy node %s (last heartbeat: %s), deadline not reached", node.Name, nodeLastHeartbeat)
 				continue nodeLoop
 			}
@@ -183,7 +186,7 @@ nodeLoop:
 				Logger.Infof("Detected unhealthy node %s (last heartbeat: %s), starting repair", node.Name, nodeLastHeartbeat)
 
 				// parse node informations from provider ID
-				nodeInfo, err := r.parseNodeProviderId(nodeProviderId)
+				nodeInfo, err := r.buildNodeInfo(&node)
 				if err != nil {
 					Logger.Errorln(err.Error())
 					continue nodeLoop
@@ -220,8 +223,11 @@ nodeLoop:
 	}
 }
 
-func (r *K8sAutoRepair) parseNodeProviderId(nodeProviderId string) (*K8sAutoRepairNodeAzureInfo, error) {
+func (r *K8sAutoRepair) buildNodeInfo(node *v1.Node) (*K8sAutoRepairNodeAzureInfo, error) {
+	nodeProviderId := node.Spec.ProviderID
+
 	info := K8sAutoRepairNodeAzureInfo{}
+	info.NodeName = node.Name
 	info.NodeProviderId = nodeProviderId
 
 	// extract Subscription
@@ -283,15 +289,15 @@ func (r *K8sAutoRepair) repairAzureVmssInstance(ctx context.Context, nodeInfo K8
 	client := compute.NewVirtualMachineScaleSetsClient(nodeInfo.Subscription)
 	client.Authorizer = r.azureAuthorizer
 
+	Logger.Infof("Scheduling Azure VMSS instance for %s: %s", r.Repair.VmssAction, nodeInfo.NodeProviderId)
+	r.sendNotificationf("Trigger automatic repair of K8s node %v (action: %v)", nodeInfo.NodeName, r.Repair.VmssAction)
+
 	switch r.Repair.VmssAction {
 	case "restart":
-		Logger.Infof("Scheduling Azure VMSS instance for restart: %s", nodeInfo.NodeProviderId)
 		_, err = client.Restart(ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceIds)
 	case "redeploy":
-		Logger.Infof("Scheduling Azure VMSS instance for redeploy: %s", nodeInfo.NodeProviderId)
 		_, err = client.Redeploy(ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceIds)
 	case "reimage":
-		Logger.Infof("Scheduling Azure VMSS instance for reimage: %s", nodeInfo.NodeProviderId)
 		_, err = client.Reimage(ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceReimage)
 	}
 	return err
@@ -303,12 +309,13 @@ func (r *K8sAutoRepair) repairAzureVm(ctx context.Context, nodeInfo K8sAutoRepai
 	client := compute.NewVirtualMachinesClient(nodeInfo.Subscription)
 	client.Authorizer = r.azureAuthorizer
 
+	Logger.Infof("Scheduling Azure VM for %s: %s", r.Repair.VmAction, nodeInfo.NodeProviderId)
+	r.sendNotificationf("Trigger automatic repair of K8s node %v (action: %v)", nodeInfo.NodeName, r.Repair.VmAction)
+
 	switch r.Repair.VmAction {
 	case "restart":
-		Logger.Infof("Scheduling Azure VM for restart: %s", nodeInfo.NodeProviderId)
 		_, err = client.Restart(ctx, nodeInfo.ResourceGroup, nodeInfo.VMname)
 	case "redeploy":
-		Logger.Infof("Scheduling Azure VM for redeploy: %s", nodeInfo.NodeProviderId)
 		_, err = client.Redeploy(ctx, nodeInfo.ResourceGroup, nodeInfo.VMname)
 	}
 	return err
@@ -341,4 +348,16 @@ func (r *K8sAutoRepair) getNodeList() (*v1.NodeList, error) {
 	}
 
 	return list, nil
+}
+
+func (r *K8sAutoRepair) sendNotificationf(message string, args ...interface{}) () {
+	r.sendNotification(fmt.Sprintf(message, args...))
+}
+
+func (r *K8sAutoRepair) sendNotification(message string) () {
+	for _, url := range r.Notification {
+		if err := shoutrrr.Send(url, message); err != nil {
+			Logger.Errorf("Unable to send shoutrrr notification: %v", err.Error())
+		}
+	}
 }

@@ -10,6 +10,7 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.3.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
+	github.com/containrrr/shoutrrr v0.0.0-20200423175557-f8dbb8b0ad2a
 	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8 // indirect
 	github.com/golang/protobuf v1.4.1 // indirect
 	github.com/google/logger v1.1.0

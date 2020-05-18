@@ -21,11 +21,13 @@ Application Options:
       --dry-run                                             Dry run (no redeploy triggered) [$DRY_RUN]
       --k8s.node.labelselector=                             Node Label selector which nodes should be checked [$K8S_NODE_LABELSELECTOR]
       --repair.interval=                                    Duration of check run (default: 30s) [$REPAIR_INTERVAL]
-      --repair.waitduration=                                Duration to wait when redeploy will be triggered (default: 10m) [$REPAIR_WAIT_DURATION]
+      --repair.notready-threshold=                          Threshold (duration) when the automatic repair should be tried (eg. after 10 mins of NotReady state after last successfull
+                                                            heartbeat) (default: 10m) [$REPAIR_NOTREADY_THRESHOLD]
       --repair.concurrency=                                 How many VMs should be redeployed concurrently (default: 1) [$REPAIR_CONCURRENCY]
       --repair.lockduration=                                Duration how long should be waited for another redeploy (default: 30m) [$REPAIR_LOCK_DURATION]
       --repair.azure.vmss.action=[restart|redeploy|reimage] Defines the action which should be tried to repair the node (VMSS) (default: redeploy) [$REPAIR_AZURE_VMSS_ACTION]
       --repair.azure.vm.action=[restart|redeploy]           Defines the action which should be tried to repair the node (VM) (default: redeploy) [$REPAIR_AZURE_VM_ACTION]
+      --notification=                                       Shoutrrr url for notifications (https://containrrr.github.io/shoutrrr/) [$NOTIFCATION]
       --bind=                                               Server address (default: :8080) [$SERVER_BIND]
 
 Help Options:
