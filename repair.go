@@ -11,6 +11,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"os"
@@ -31,8 +32,17 @@ type K8sAutoRepair struct {
 	Interval     *time.Duration
 	WaitDuration *time.Duration
 	LockDuration *time.Duration
-	Limit        int64
+	Limit        int
 	DryRun       bool
+
+	K8s struct {
+		NodeLabelSelector string
+	}
+
+	Repair struct {
+		VmssAction     string
+		VmAction       string
+	}
 
 	azureAuthorizer autorest.Authorizer
 	k8sClient       *kubernetes.Clientset
@@ -41,6 +51,8 @@ type K8sAutoRepair struct {
 }
 
 type K8sAutoRepairNodeAzureInfo struct {
+	NodeProviderId string
+
 	Subscription  string
 	ResourceGroup string
 
@@ -95,10 +107,12 @@ func (r *K8sAutoRepair) initK8s() {
 func (r *K8sAutoRepair) Run() {
 	go func() {
 		for {
-			Logger.Infoln("Checking cluster nodes")
-			r.checkAndRepairCluster()
-			Logger.Infoln("Checking cluster finished")
 			time.Sleep(*r.Interval)
+			Logger.Infoln("Checking cluster nodes")
+			start := time.Now()
+			r.checkAndRepairCluster()
+			runtime := time.Now().Sub(start)
+			Logger.Infof("Finished after %s", runtime.String())
 		}
 	}()
 }
@@ -107,87 +121,108 @@ func (r *K8sAutoRepair) checkAndRepairCluster() {
 	nodeList, err := r.getNodeList()
 
 	if err != nil {
-		Logger.Errorln(fmt.Sprintf("Unable to fetch K8s Node list: %v", err.Error()))
+		Logger.Errorf("Unable to fetch K8s Node list: %v", err.Error())
 		return
 	}
 
 	redeployTriggerSeconds := r.WaitDuration.Seconds()
 
-	repairCount := int64(0)
+	Logger.Verbosef("Found %v nodes in cluster", len(nodeList.Items))
+	Logger.Verbosef("%v locked nodes (repair lock)", r.cache.Count())
 
 nodeLoop:
 	for _, node := range nodeList.Items {
+		Logger.Verbosef("Checking node %v", node.Name)
+
+		// detect if node is ready/healthy
+		nodeIsHealthy := true
+		nodeLastHeartbeatAge := float64(0)
+		nodeLastHeartbeat := "<unknown>"
 		for _, condition := range node.Status.Conditions {
 			if condition.Type == "Ready" && condition.Status != "True" {
-				// ignore cordoned nodes, maybe maintenance work in progress
-				if node.Spec.Unschedulable {
-					Logger.Info(fmt.Sprintf("Detected unhealthy node %s, ignoring because node is cordoned", node.Name))
+				nodeIsHealthy = false
+				nodeLastHeartbeat = condition.LastHeartbeatTime.Time.String()
+				nodeLastHeartbeatAge = time.Now().Sub(condition.LastHeartbeatTime.Time).Seconds()
+			}
+		}
+
+		if !nodeIsHealthy {
+			// node is NOT healthy
+
+			// ignore cordoned nodes, maybe maintenance work in progress
+			if node.Spec.Unschedulable {
+				Logger.Infof("Detected unhealthy node %s, ignoring because node is cordoned", node.Name)
+				continue nodeLoop
+			}
+
+			// check if heartbeat already exceeded threshold
+			if nodeLastHeartbeatAge < redeployTriggerSeconds {
+				Logger.Infof("Detected unhealthy node %s (last heartbeat: %s), deadline not reached", node.Name, nodeLastHeartbeat)
+				continue nodeLoop
+			}
+
+			nodeProviderId := node.Spec.ProviderID
+			if strings.HasPrefix(nodeProviderId, "azure://") {
+				// is an azure node
+
+				var err error
+				ctx := context.Background()
+
+				// redeploy timeout lock
+				if _, err = r.cache.Value(node.Name); err == nil {
+					Logger.Infof("Detected unhealthy node %s (last heartbeat: %s), waiting for repair (locked)", node.Name, nodeLastHeartbeat)
 					continue nodeLoop
 				}
 
-				// check if heartbeat already exceeded threshold
-				nodeHeartbeatSinceSeconds := time.Now().Sub(condition.LastHeartbeatTime.Time).Seconds()
-				if nodeHeartbeatSinceSeconds < redeployTriggerSeconds {
+				// concurrency repair limit
+				if r.Limit > 0 && r.cache.Count() >= r.Limit {
+					Logger.Infof("Detected unhealthy node %s (last heartbeat: %s), skipping due to concurrent repair limit", node.Name, nodeLastHeartbeat)
 					continue nodeLoop
 				}
 
-				nodeProviderId := node.Spec.ProviderID
-				if strings.HasPrefix(nodeProviderId, "azure://") {
-					var err error
-					ctx := context.Background()
-					// is an azure node
-					repairCount++
+				Logger.Infof("Detected unhealthy node %s (last heartbeat: %s), starting repair", node.Name, nodeLastHeartbeat)
 
-					// concurrency repair limit
-					if r.Limit > 0 && repairCount > r.Limit {
-						Logger.Info(fmt.Sprintf("Detected unhealthy node %s (last heartbeat: %s), skipping due to concurrency limit", node.Name, condition.LastHeartbeatTime.Time))
-						continue nodeLoop
-					}
+				// parse node informations from provider ID
+				nodeInfo, err := r.parseNodeProviderId(nodeProviderId)
+				if err != nil {
+					Logger.Errorln(err.Error())
+					continue nodeLoop
+				}
 
-					// redeploy timeout lock
-					if _, err = r.cache.Value(node.Name); err == nil {
-						Logger.Info(fmt.Sprintf("Detected unhealthy node %s (last heartbeat: %s), waiting for redeploy (locked)", node.Name, condition.LastHeartbeatTime.Time))
-						continue nodeLoop
-					}
+				if r.DryRun {
+					Logger.Infof("Node %s repair skipped, dry run", node.Name)
+					r.cache.Add(node.Name, *r.LockDuration, true)
+					continue nodeLoop
+				}
 
-					Logger.Info(fmt.Sprintf("Detected unhealthy node %s (last heartbeat: %s), starting redeploy", node.Name, condition.LastHeartbeatTime.Time))
+				if nodeInfo.IsVmss {
+					// node is VMSS instance
+					err = r.repairAzureVmssInstance(ctx, *nodeInfo)
+				} else {
+					// node is a VM
+					err = r.repairAzureVm(ctx, *nodeInfo)
+				}
 
-					// parse node informations from provider ID
-					nodeInfo, err := r.parseNodeProviderId(nodeProviderId)
-					if err != nil {
-						Logger.Errorln(err.Error())
-						continue nodeLoop
-					}
-
-					if opts.DryRun {
-						Logger.Infoln(fmt.Sprintf("Node %s redeployment skipped, dry run", node.Name))
-						continue nodeLoop
-					}
-
-					if nodeInfo.IsVmss {
-						// node is VMSS instance
-						err = r.redeployAzureVmssInstance(ctx, *nodeInfo)
-					} else {
-						// node is a VM
-						err = r.redeployAzureVm(ctx, *nodeInfo)
-					}
-
-					if err != nil {
-						Logger.Errorln(fmt.Sprintf("Node %s redeployment failed: %s", node.Name, err.Error()))
-						continue nodeLoop
-					} else {
-						// lock vm for next redeploy, can take up to 15 mins
-						r.cache.Add(node.Name, *r.LockDuration, true)
-						Logger.Infoln(fmt.Sprintf("Node %s successfully scheduled redeployment of VM", node.Name))
-					}
+				if err != nil {
+					Logger.Errorf("Node %s repair failed: %s", node.Name, err.Error())
+					continue nodeLoop
+				} else {
+					// lock vm for next redeploy, can take up to 15 mins
+					r.cache.Add(node.Name, *r.LockDuration, true)
+					Logger.Infof("Node %s successfully scheduled for repair", node.Name)
 				}
 			}
+		} else {
+			// node is NOT healthy
+			Logger.Verbosef("Detected healthy node %s", node.Name)
+			r.cache.Delete(node.Name) //nolint:golint,errcheck
 		}
 	}
 }
 
 func (r *K8sAutoRepair) parseNodeProviderId(nodeProviderId string) (*K8sAutoRepairNodeAzureInfo, error) {
 	info := K8sAutoRepairNodeAzureInfo{}
+	info.NodeProviderId = nodeProviderId
 
 	// extract Subscription
 	if match := azureSubscriptionRegexp.FindStringSubmatch(nodeProviderId); len(match) == 2 {
@@ -235,25 +270,75 @@ func (r *K8sAutoRepair) parseNodeProviderId(nodeProviderId string) (*K8sAutoRepa
 	return &info, nil
 }
 
-func (r *K8sAutoRepair) redeployAzureVmssInstance(ctx context.Context, nodeInfo K8sAutoRepairNodeAzureInfo) error {
+func (r *K8sAutoRepair) repairAzureVmssInstance(ctx context.Context, nodeInfo K8sAutoRepairNodeAzureInfo) error {
+	var err error
 	vmssInstanceIds := compute.VirtualMachineScaleSetVMInstanceIDs{
+		InstanceIds: &[]string{nodeInfo.VMInstanceID},
+	}
+
+	vmssInstanceReimage := compute.VirtualMachineScaleSetReimageParameters{
 		InstanceIds: &[]string{nodeInfo.VMInstanceID},
 	}
 
 	client := compute.NewVirtualMachineScaleSetsClient(nodeInfo.Subscription)
 	client.Authorizer = r.azureAuthorizer
-	_, err := client.Redeploy(ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceIds)
+
+	switch r.Repair.VmssAction {
+	case "restart":
+		Logger.Infof("Scheduling Azure VMSS instance for restart: %s", nodeInfo.NodeProviderId)
+		_, err = client.Restart(ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceIds)
+	case "redeploy":
+		Logger.Infof("Scheduling Azure VMSS instance for redeploy: %s", nodeInfo.NodeProviderId)
+		_, err = client.Redeploy(ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceIds)
+	case "reimage":
+		Logger.Infof("Scheduling Azure VMSS instance for reimage: %s", nodeInfo.NodeProviderId)
+		_, err = client.Reimage(ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceReimage)
+	}
 	return err
 }
 
-func (r *K8sAutoRepair) redeployAzureVm(ctx context.Context, nodeInfo K8sAutoRepairNodeAzureInfo) error {
+func (r *K8sAutoRepair) repairAzureVm(ctx context.Context, nodeInfo K8sAutoRepairNodeAzureInfo) error {
+	var err error
+
 	client := compute.NewVirtualMachinesClient(nodeInfo.Subscription)
 	client.Authorizer = r.azureAuthorizer
-	_, err := client.Redeploy(ctx, nodeInfo.ResourceGroup, nodeInfo.VMname)
+
+	switch r.Repair.VmAction {
+	case "restart":
+		Logger.Infof("Scheduling Azure VM for restart: %s", nodeInfo.NodeProviderId)
+		_, err = client.Restart(ctx, nodeInfo.ResourceGroup, nodeInfo.VMname)
+	case "redeploy":
+		Logger.Infof("Scheduling Azure VM for redeploy: %s", nodeInfo.NodeProviderId)
+		_, err = client.Redeploy(ctx, nodeInfo.ResourceGroup, nodeInfo.VMname)
+	}
 	return err
 }
 
 func (r *K8sAutoRepair) getNodeList() (*v1.NodeList, error) {
 	opts := metav1.ListOptions{}
-	return r.k8sClient.CoreV1().Nodes().List(opts)
+	opts.LabelSelector = r.K8s.NodeLabelSelector
+	list, err := r.k8sClient.CoreV1().Nodes().List(opts)
+	if err != nil {
+		return list, err
+	}
+
+	// fetch all nodes
+	for {
+		if list.RemainingItemCount == nil || *list.RemainingItemCount == 0 {
+			break
+		}
+
+		opts.Continue = list.Continue
+
+		remainList, err := r.k8sClient.CoreV1().Nodes().List(opts)
+		if err != nil {
+			return list, err
+		}
+
+		list.Continue = remainList.Continue
+		list.RemainingItemCount = remainList.RemainingItemCount
+		list.Items = append(list.Items, remainList.Items...)
+	}
+
+	return list, nil
 }

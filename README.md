@@ -7,6 +7,8 @@ Azurer Kubernetes AutoRepair
 
 Services which checks node status and triggeres an automatic Azure VM redeployment to try to solve VM issues.
 
+Supports Azure AKS and custom Azure Kubernetes clusters.
+
 Configuration
 -------------
 
@@ -15,16 +17,20 @@ Usage:
   azure-k8s-autorepair [OPTIONS]
 
 Application Options:
-  -v, --verbose              Verbose mode [$VERBOSE]
-      --dry-run              Dry run (no redeploy triggered) [$DRY_RUN]
-      --repair.interval=     Duration of check run (default: 30s) [$REPAIR_INTERVAL]
-      --repair.waitduration= Duration to wait when redeploy will be triggered (default: 10m) [$REPAIR_WAIT_DURATION]
-      --repair.concurrency=  How many VMs should be redeployed concurrently (default: 1) [$REPAIR_CONCURRENCY]
-      --repair.lockduration= Duration how long should be waited for another redeploy (default: 15m) [$REPAIR_LOCK_DURATION]
-      --bind=                Server address (default: :8080) [$SERVER_BIND]
+  -v, --verbose                                             Verbose mode [$VERBOSE]
+      --dry-run                                             Dry run (no redeploy triggered) [$DRY_RUN]
+      --k8s.node.labelselector=                             Node Label selector which nodes should be checked [$K8S_NODE_LABELSELECTOR]
+      --repair.interval=                                    Duration of check run (default: 30s) [$REPAIR_INTERVAL]
+      --repair.waitduration=                                Duration to wait when redeploy will be triggered (default: 10m) [$REPAIR_WAIT_DURATION]
+      --repair.concurrency=                                 How many VMs should be redeployed concurrently (default: 1) [$REPAIR_CONCURRENCY]
+      --repair.lockduration=                                Duration how long should be waited for another redeploy (default: 30m) [$REPAIR_LOCK_DURATION]
+      --repair.azure.vmss.action=[restart|redeploy|reimage] Defines the action which should be tried to repair the node (VMSS) (default: redeploy) [$REPAIR_AZURE_VMSS_ACTION]
+      --repair.azure.vm.action=[restart|redeploy]           Defines the action which should be tried to repair the node (VM) (default: redeploy) [$REPAIR_AZURE_VM_ACTION]
+      --bind=                                               Server address (default: :8080) [$SERVER_BIND]
 
 Help Options:
-  -h, --help                 Show this help message
+  -h, --help                                                Show this help message
+
 ```
 
 for Azure API authentication (using ENV vars) see https://github.com/Azure/azure-sdk-for-go#authentication
@@ -34,4 +40,4 @@ for Kubernetes ServiceAccont is discoverd automatically (or you can use env path
 Metrics
 -------
 
-no custom metrics for now
+standard metrics only (see `:8080/metrics`)
