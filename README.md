@@ -9,6 +9,8 @@ Services which checks node status and triggeres an automatic Azure VM redeployme
 
 Supports Azure AKS and custom Azure Kubernetes clusters.
 
+Supports [shoutrrr](https://containrrr.github.io/shoutrrr/) notifications.
+
 Configuration
 -------------
 
