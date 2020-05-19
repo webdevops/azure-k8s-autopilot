@@ -8,7 +8,7 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/containrrr/shoutrrr"
-	"github.com/muesli/cache2go"
+	"github.com/patrickmn/go-cache"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -30,19 +30,23 @@ var (
 )
 
 type K8sAutoRepair struct {
-	Interval     *time.Duration
+	Interval          *time.Duration
 	NotReadyThreshold *time.Duration
-	LockDuration *time.Duration
-	Limit        int
-	DryRun       bool
+	LockDuration      *time.Duration
+	LockDurationError *time.Duration
+	Limit             int
+	DryRun            bool
 
 	K8s struct {
 		NodeLabelSelector string
 	}
 
 	Repair struct {
-		VmssAction     string
-		VmAction       string
+		VmssAction string
+		VmAction   string
+
+		ProvisioningState    []string
+		provisioningStateAll bool
 	}
 
 	Notification []string
@@ -50,12 +54,13 @@ type K8sAutoRepair struct {
 	azureAuthorizer autorest.Authorizer
 	k8sClient       *kubernetes.Clientset
 
-	cache *cache2go.CacheTable
+	nodeCache *cache.Cache
 }
 
 type K8sAutoRepairNodeAzureInfo struct {
-	NodeName string
+	NodeName       string
 	NodeProviderId string
+	ProviderId     string
 
 	Subscription  string
 	ResourceGroup string
@@ -70,7 +75,17 @@ type K8sAutoRepairNodeAzureInfo struct {
 func (r *K8sAutoRepair) Init() {
 	r.initAzure()
 	r.initK8s()
-	r.cache = cache2go.Cache("nodeCache")
+	r.nodeCache = cache.New(15*time.Minute, 1*time.Minute)
+
+	r.Repair.provisioningStateAll = false
+	for key, val := range r.Repair.ProvisioningState {
+		val = strings.ToLower(val)
+		r.Repair.ProvisioningState[key] = val
+
+		if val == "*" {
+			r.Repair.provisioningStateAll = true
+		}
+	}
 }
 
 func (r *K8sAutoRepair) initAzure() {
@@ -108,6 +123,31 @@ func (r *K8sAutoRepair) initK8s() {
 }
 
 func (r *K8sAutoRepair) Run() {
+	Logger.Infof("Starting cluster check loop")
+
+	if r.DryRun {
+		Logger.Infof(" - DRY-RUN active")
+	}
+
+	Logger.Infof(" - General settings")
+	Logger.Infof("   interval: %v", r.Interval)
+	Logger.Infof("   NotReady threshold: %v", r.NotReadyThreshold)
+	Logger.Infof("   Lock duration (repair): %v", r.LockDuration)
+	Logger.Infof("   Lock duration (error): %v", r.LockDurationError)
+	Logger.Infof("   Limit: %v", r.Limit)
+
+	Logger.Infof(" - Kubernetes settings")
+	Logger.Infof("   node labelselector: %v", r.K8s.NodeLabelSelector)
+
+	Logger.Infof(" - Repair settings")
+	Logger.Infof("   VMSS action: %v", r.Repair.VmssAction)
+	Logger.Infof("   VM action: %v", r.Repair.VmAction)
+	if r.Repair.provisioningStateAll {
+		Logger.Infof("   ProvisioningStates: * (all accepted)")
+	} else {
+		Logger.Infof("   ProvisioningStates: %v", r.Repair.ProvisioningState)
+	}
+
 	go func() {
 		for {
 			time.Sleep(*r.Interval)
@@ -130,8 +170,9 @@ func (r *K8sAutoRepair) checkAndRepairCluster() {
 
 	repairThresholdSeconds := r.NotReadyThreshold.Seconds()
 
-	Logger.Verbosef("Found %v nodes in cluster", len(nodeList.Items))
-	Logger.Verbosef("%v locked nodes (repair lock)", r.cache.Count())
+	r.nodeCache.DeleteExpired()
+
+	Logger.Verbosef("Found %v nodes in cluster (%v in locked state)", len(nodeList.Items), r.nodeCache.ItemCount())
 
 nodeLoop:
 	for _, node := range nodeList.Items {
@@ -160,7 +201,7 @@ nodeLoop:
 
 			// check if heartbeat already exceeded threshold
 			if nodeLastHeartbeatAge < repairThresholdSeconds {
-				Logger.Infof("Detected unhealthy node %s (last heartbeat: %s), deadline not reached", node.Name, nodeLastHeartbeat)
+				Logger.Infof("Detected unhealthy node %s (last heartbeat: %s), deadline of %v not reached", node.Name, nodeLastHeartbeat, r.NotReadyThreshold.String())
 				continue nodeLoop
 			}
 
@@ -172,13 +213,13 @@ nodeLoop:
 				ctx := context.Background()
 
 				// redeploy timeout lock
-				if _, err = r.cache.Value(node.Name); err == nil {
-					Logger.Infof("Detected unhealthy node %s (last heartbeat: %s), waiting for repair (locked)", node.Name, nodeLastHeartbeat)
+				if _, expiry, exists := r.nodeCache.GetWithExpiration(node.Name); exists == true {
+					Logger.Infof("Detected unhealthy node %s (last heartbeat: %s), locked (relased in %v)", node.Name, nodeLastHeartbeat, expiry.Sub(time.Now()))
 					continue nodeLoop
 				}
 
 				// concurrency repair limit
-				if r.Limit > 0 && r.cache.Count() >= r.Limit {
+				if r.Limit > 0 && r.nodeCache.ItemCount() >= r.Limit {
 					Logger.Infof("Detected unhealthy node %s (last heartbeat: %s), skipping due to concurrent repair limit", node.Name, nodeLastHeartbeat)
 					continue nodeLoop
 				}
@@ -194,7 +235,7 @@ nodeLoop:
 
 				if r.DryRun {
 					Logger.Infof("Node %s repair skipped, dry run", node.Name)
-					r.cache.Add(node.Name, *r.LockDuration, true)
+					r.nodeCache.Add(node.Name, true, *r.LockDuration) //nolint:golint,errcheck
 					continue nodeLoop
 				}
 
@@ -208,17 +249,18 @@ nodeLoop:
 
 				if err != nil {
 					Logger.Errorf("Node %s repair failed: %s", node.Name, err.Error())
+					r.nodeCache.Add(node.Name, true, *r.LockDurationError) //nolint:golint,errcheck
 					continue nodeLoop
 				} else {
 					// lock vm for next redeploy, can take up to 15 mins
-					r.cache.Add(node.Name, *r.LockDuration, true)
+					r.nodeCache.Add(node.Name, true, *r.LockDuration) //nolint:golint,errcheck
 					Logger.Infof("Node %s successfully scheduled for repair", node.Name)
 				}
 			}
 		} else {
 			// node is NOT healthy
 			Logger.Verbosef("Detected healthy node %s", node.Name)
-			r.cache.Delete(node.Name) //nolint:golint,errcheck
+			r.nodeCache.Delete(node.Name)
 		}
 	}
 }
@@ -229,6 +271,7 @@ func (r *K8sAutoRepair) buildNodeInfo(node *v1.Node) (*K8sAutoRepairNodeAzureInf
 	info := K8sAutoRepairNodeAzureInfo{}
 	info.NodeName = node.Name
 	info.NodeProviderId = nodeProviderId
+	info.ProviderId = strings.TrimPrefix(nodeProviderId, "azure://")
 
 	// extract Subscription
 	if match := azureSubscriptionRegexp.FindStringSubmatch(nodeProviderId); len(match) == 2 {
@@ -286,19 +329,34 @@ func (r *K8sAutoRepair) repairAzureVmssInstance(ctx context.Context, nodeInfo K8
 		InstanceIds: &[]string{nodeInfo.VMInstanceID},
 	}
 
-	client := compute.NewVirtualMachineScaleSetsClient(nodeInfo.Subscription)
-	client.Authorizer = r.azureAuthorizer
+	vmssClient := compute.NewVirtualMachineScaleSetsClient(nodeInfo.Subscription)
+	vmssClient.Authorizer = r.azureAuthorizer
 
-	Logger.Infof("Scheduling Azure VMSS instance for %s: %s", r.Repair.VmssAction, nodeInfo.NodeProviderId)
+	vmssVmClient := compute.NewVirtualMachineScaleSetVMsClient(nodeInfo.Subscription)
+	vmssVmClient.Authorizer = r.azureAuthorizer
+
+	// fetch instances
+	vmInstance, err := vmssVmClient.Get(ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, nodeInfo.VMInstanceID, "")
+	if err != nil {
+		return err
+	}
+
+	// checking vm provision state
+	if err := r.checkVmProvisionState(vmInstance.ProvisioningState); err != nil {
+		return err
+	}
+
+	Logger.Infof("Scheduling Azure VMSS instance for %s: %s", r.Repair.VmssAction, nodeInfo.ProviderId)
 	r.sendNotificationf("Trigger automatic repair of K8s node %v (action: %v)", nodeInfo.NodeName, r.Repair.VmssAction)
 
+	// trigger repair
 	switch r.Repair.VmssAction {
 	case "restart":
-		_, err = client.Restart(ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceIds)
+		_, err = vmssClient.Restart(ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceIds)
 	case "redeploy":
-		_, err = client.Redeploy(ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceIds)
+		_, err = vmssClient.Redeploy(ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceIds)
 	case "reimage":
-		_, err = client.Reimage(ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceReimage)
+		_, err = vmssClient.Reimage(ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceReimage)
 	}
 	return err
 }
@@ -309,7 +367,18 @@ func (r *K8sAutoRepair) repairAzureVm(ctx context.Context, nodeInfo K8sAutoRepai
 	client := compute.NewVirtualMachinesClient(nodeInfo.Subscription)
 	client.Authorizer = r.azureAuthorizer
 
-	Logger.Infof("Scheduling Azure VM for %s: %s", r.Repair.VmAction, nodeInfo.NodeProviderId)
+	// fetch instances
+	vmInstance, err := client.Get(ctx, nodeInfo.ResourceGroup, nodeInfo.VMname, "")
+	if err != nil {
+		return err
+	}
+
+	// checking vm provision state
+	if err := r.checkVmProvisionState(vmInstance.ProvisioningState); err != nil {
+		return err
+	}
+
+	Logger.Infof("Scheduling Azure VM for %s: %s", r.Repair.VmAction, nodeInfo.ProviderId)
 	r.sendNotificationf("Trigger automatic repair of K8s node %v (action: %v)", nodeInfo.NodeName, r.Repair.VmAction)
 
 	switch r.Repair.VmAction {
@@ -319,6 +388,20 @@ func (r *K8sAutoRepair) repairAzureVm(ctx context.Context, nodeInfo K8sAutoRepai
 		_, err = client.Redeploy(ctx, nodeInfo.ResourceGroup, nodeInfo.VMname)
 	}
 	return err
+}
+
+func (r *K8sAutoRepair) checkVmProvisionState(provisioningState *string) (err error) {
+	if r.Repair.provisioningStateAll || provisioningState == nil {
+		return
+	}
+
+	// checking vm provision state
+	vmProvisionState := strings.ToLower(*provisioningState)
+	if !stringArrayContains(r.Repair.ProvisioningState, vmProvisionState) {
+		err = errors.New(fmt.Sprintf("VM is in ProvisioningState \"%v\"", vmProvisionState))
+	}
+
+	return
 }
 
 func (r *K8sAutoRepair) getNodeList() (*v1.NodeList, error) {
@@ -350,11 +433,11 @@ func (r *K8sAutoRepair) getNodeList() (*v1.NodeList, error) {
 	return list, nil
 }
 
-func (r *K8sAutoRepair) sendNotificationf(message string, args ...interface{}) () {
+func (r *K8sAutoRepair) sendNotificationf(message string, args ...interface{}) {
 	r.sendNotification(fmt.Sprintf(message, args...))
 }
 
-func (r *K8sAutoRepair) sendNotification(message string) () {
+func (r *K8sAutoRepair) sendNotification(message string) {
 	for _, url := range r.Notification {
 		if err := shoutrrr.Send(url, message); err != nil {
 			Logger.Errorf("Unable to send shoutrrr notification: %v", err.Error())

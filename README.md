@@ -26,9 +26,13 @@ Application Options:
       --repair.notready-threshold=                          Threshold (duration) when the automatic repair should be tried (eg. after 10 mins of NotReady state after last successfull
                                                             heartbeat) (default: 10m) [$REPAIR_NOTREADY_THRESHOLD]
       --repair.concurrency=                                 How many VMs should be redeployed concurrently (default: 1) [$REPAIR_CONCURRENCY]
-      --repair.lockduration=                                Duration how long should be waited for another redeploy (default: 30m) [$REPAIR_LOCK_DURATION]
+      --repair.lock-duration=                               Duration how long should be waited for another redeploy (default: 30m) [$REPAIR_LOCK_DURATION]
+      --repair.lock-duration-error=                         Duration how long should be waited for another redeploy in case an error occurred (default: 5m)
+                                                            [$REPAIR_LOCK_DURATION_ERROR]
       --repair.azure.vmss.action=[restart|redeploy|reimage] Defines the action which should be tried to repair the node (VMSS) (default: redeploy) [$REPAIR_AZURE_VMSS_ACTION]
       --repair.azure.vm.action=[restart|redeploy]           Defines the action which should be tried to repair the node (VM) (default: redeploy) [$REPAIR_AZURE_VM_ACTION]
+      --repair.azure.provisioningstate=                     Azure VM provisioning states where repair should be tried (eg. avoid repair in "upgrading" state; "*" to accept all
+                                                            states) (default: succeeded, failed) [$REPAIR_AZURE_PROVISIONINGSTATE]
       --notification=                                       Shoutrrr url for notifications (https://containrrr.github.io/shoutrrr/) [$NOTIFCATION]
       --bind=                                               Server address (default: :8080) [$SERVER_BIND]
 
