@@ -1,2 +1,4 @@
 /vendor/
-/azure-k8s-autorepair
+/azure-k8s-autopilot
+/*.exe
+

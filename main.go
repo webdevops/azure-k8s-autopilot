@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"github.com/jessevdk/go-flags"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"log"
+	log "github.com/sirupsen/logrus"
+	"github.com/webdevopos/azure-k8s-autopilot/autopilot"
 	"net/http"
 	"os"
+	"runtime"
 	"time"
 )
 
@@ -16,8 +18,6 @@ const (
 
 var (
 	argparser *flags.Parser
-	Verbose   bool
-	Logger    *DaemonLogger
 
 	// Git version information
 	gitCommit = "<unknown>"
@@ -26,8 +26,11 @@ var (
 
 var opts struct {
 	// general settings
-	Verbose []bool `long:"verbose" short:"v" env:"VERBOSE"   description:"Verbose mode"`
-	DryRun  bool   `long:"dry-run"           env:"DRY_RUN"   description:"Dry run (no redeploy triggered)"`
+	DryRun bool `long:"dry-run"           env:"DRY_RUN"   description:"Dry run (no redeploy triggered)"`
+
+	// logger
+	Verbose bool `short:"v"  long:"verbose"      env:"VERBOSE"  description:"verbose mode"`
+	LogJson bool `           long:"log.json"     env:"LOG_JSON" description:"Switch log output to json format"`
 
 	// k8s
 	K8sNodeLabelSelector string `long:"k8s.node.labelselector"   env:"K8S_NODE_LABELSELECTOR"           description:"Node Label selector which nodes should be checked"                                   default:""`
@@ -52,19 +55,10 @@ var opts struct {
 func main() {
 	initArgparser()
 
-	// set verbosity
-	Verbose = len(opts.Verbose) >= 1
-
-	Logger = NewLogger(log.Lshortfile, Verbose)
-	defer Logger.Close()
-
-	// set verbosity
-	Verbose = len(opts.Verbose) >= 1
-
-	Logger.Infof("Init Azure K8S cluster AutoRepair v%s (%s; by %v)", gitTag, gitCommit, Author)
+	log.Infof("starting Azure K8S cluster autopilot v%s (%s; %s; by %v)", gitTag, gitCommit, runtime.Version(), Author)
 	startAzureK8sAutorepair()
 
-	Logger.Infof("Starting http server on %s", opts.ServerBind)
+	log.Infof("starting http server on %s", opts.ServerBind)
 	startHttpServer()
 }
 
@@ -84,11 +78,21 @@ func initArgparser() {
 			os.Exit(1)
 		}
 	}
+
+	// verbose level
+	if opts.Verbose {
+		log.SetLevel(log.DebugLevel)
+	}
+
+	// verbose level
+	if opts.LogJson {
+		log.SetFormatter(&log.JSONFormatter{})
+	}
 }
 
 // Init and build Azure authorzier
 func startAzureK8sAutorepair() {
-	autorepair := K8sAutoRepair{}
+	autorepair := autopilot.AzureK8sAutopilot{}
 
 	// general
 	autorepair.Interval = &opts.RepairInterval
@@ -116,5 +120,5 @@ func startAzureK8sAutorepair() {
 // start and handle prometheus handler
 func startHttpServer() {
 	http.Handle("/metrics", promhttp.Handler())
-	Logger.Fatal(http.ListenAndServe(opts.ServerBind, nil))
+	log.Fatal(http.ListenAndServe(opts.ServerBind, nil))
 }

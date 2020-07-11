@@ -1,9 +1,9 @@
-Azurer Kubernetes AutoRepair
+Azurer Kubernetes Autopilot
 ============================
 
-[![license](https://img.shields.io/github/license/webdevops/azure-k8s-autorepair.svg)](https://github.com/webdevops/azure-k8s-autorepair/blob/master/LICENSE)
-[![Docker](https://img.shields.io/badge/docker-webdevops%2Fazure--k8s--autorepair-blue.svg?longCache=true&style=flat&logo=docker)](https://hub.docker.com/r/webdevops/azure-k8s-autorepair/)
-[![Docker Build Status](https://img.shields.io/docker/cloud/build/webdevops/azure-k8s-autorepair)](https://hub.docker.com/r/webdevops/azure-k8s-autorepair/)
+[![license](https://img.shields.io/github/license/webdevops/azure-k8s-autopilot.svg)](https://github.com/webdevops/azure-k8s-autopilot/blob/master/LICENSE)
+[![Docker](https://img.shields.io/badge/docker-webdevops%2Fazure--k8s--autopilot-blue.svg?longCache=true&style=flat&logo=docker)](https://hub.docker.com/r/webdevops/azure-k8s-autopilot/)
+[![Docker Build Status](https://img.shields.io/docker/cloud/build/webdevops/azure-k8s-autopilot)](https://hub.docker.com/r/webdevops/azure-k8s-autopilot/)
 
 Services which checks node status and triggeres an automatic Azure VM redeployment to try to solve VM issues.
 
@@ -16,7 +16,7 @@ Configuration
 
 ```
 Usage:
-  azure-k8s-autorepair [OPTIONS]
+  azure-k8s-autopilot [OPTIONS]
 
 Application Options:
   -v, --verbose                                             Verbose mode [$VERBOSE]
