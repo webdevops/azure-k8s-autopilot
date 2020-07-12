@@ -107,8 +107,14 @@ func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, no
 	vmssInstanceUpdateOpts := compute.VirtualMachineScaleSetVMInstanceRequiredIDs{
 		InstanceIds: &[]string{*vmInstance.InstanceID},
 	}
+
+	// trigger update call
 	_, err = vmssClient.UpdateInstances(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, vmssInstanceUpdateOpts)
-	return err
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *AzureK8sAutopilot) checkVmProvisionState(provisioningState *string) (err error) {

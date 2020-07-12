@@ -55,7 +55,7 @@ func (k *Kubectl) NodeDrain() error {
 
 func (k *Kubectl) NodeUncordon() error {
 	k.logger.Infof(fmt.Sprintf("uncordon node %v", k.nodeName))
-	return k.exec("uncordon", "-l", fmt.Sprintf("webdevops.io/azure-scheduledevents-manager=%v", k.nodeName))
+	return k.exec("uncordon", k.nodeName)
 }
 
 func (k *Kubectl) exec(args ...string) error {

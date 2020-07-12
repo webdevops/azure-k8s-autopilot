@@ -240,7 +240,7 @@ func (r *AzureK8sAutopilot) autoUncordonExpiredNodes(contextLogger *log.Entry, n
 			if lockDuration == nil || lockDuration.Seconds() <= 0 {
 				// check if node is cordoned
 				if node.Spec.Unschedulable {
-					contextLogger.Errorf("node %s is still cordoned, uncording it", node.Name)
+					contextLogger.Infof("node %s is still cordoned, uncording it", node.Name)
 
 					// uncordon node
 					if err := r.k8sUncordonNode(contextLogger, node); err != nil {
