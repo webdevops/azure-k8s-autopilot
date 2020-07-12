@@ -31,17 +31,17 @@ type (
 
 		prometheus struct {
 			general struct {
-				errors      *prometheus.CounterVec
+				errors *prometheus.CounterVec
 			}
 
 			repair struct {
 				count      *prometheus.CounterVec
 				nodeStatus *prometheus.GaugeVec
-				duration *prometheus.GaugeVec
+				duration   *prometheus.GaugeVec
 			}
 
 			update struct {
-				count *prometheus.CounterVec
+				count    *prometheus.CounterVec
 				duration *prometheus.GaugeVec
 			}
 		}
