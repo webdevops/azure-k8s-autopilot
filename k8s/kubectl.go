@@ -10,7 +10,6 @@ import (
 type (
 	Kubectl struct {
 		nodeName string
-		enabled  bool
 		logger   *log.Entry
 
 		Conf config.OptsDrain
