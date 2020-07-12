@@ -72,11 +72,9 @@ func initArgparser() {
 
 // Init and build Azure authorzier
 func startAzureK8sAutorepair() {
-	autorepair := autopilot.AzureK8sAutopilot{}
-
-	// general
-	autorepair.Config = opts
-
+	autorepair := autopilot.AzureK8sAutopilot{
+		Config: opts,
+	}
 	autorepair.Init()
 	autorepair.Run()
 }
