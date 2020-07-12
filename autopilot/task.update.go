@@ -80,8 +80,7 @@ vmssLoop:
 
 					// TODO: need to drain node
 
-					//err = r.azureVmssInstanceUpdate(vmssInstanceContextLogger, *nodeInfo)
-					fmt.Println(nodeInfo)
+					err = r.azureVmssInstanceUpdate(vmssInstanceContextLogger, *nodeInfo)
 					err = nil
 					r.prometheus.update.count.WithLabelValues().Inc()
 

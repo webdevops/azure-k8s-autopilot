@@ -7,21 +7,9 @@ import (
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"strings"
 	"time"
 )
 
-type (
-	k8sPatchStringValue struct {
-		Op    string `json:"op"`
-		Path  string `json:"path"`
-		Value string `json:"value"`
-	}
-	k8sPatchRemove struct {
-		Op    string `json:"op"`
-		Path  string `json:"path"`
-	}
-)
 
 func (r *AzureK8sAutopilot) getK8sNodeList() (nodeList *k8s.NodeList, err error) {
 	ctx := context.Background()
@@ -61,12 +49,9 @@ func (r *AzureK8sAutopilot) getK8sNodeList() (nodeList *k8s.NodeList, err error)
 func (r *AzureK8sAutopilot) k8sSetNodeLockAnnotation(node *k8s.Node, annotationName string, dur time.Duration) (err error) {
 	lockValue := time.Now().Add(dur).Format(time.RFC3339)
 
-	annotationName = strings.ReplaceAll(annotationName, "~", "~0")
-	annotationName = strings.ReplaceAll(annotationName, "/", "~1")
-
-	patch := []k8sPatchStringValue{{
+	patch := []k8s.PatchStringValue{{
 		Op:    "replace",
-		Path:  fmt.Sprintf("/metadata/annotations/%s", annotationName),
+		Path:  fmt.Sprintf("/metadata/annotations/%s", k8s.PatchPathEsacpe(annotationName)),
 		Value: lockValue,
 	}}
 
@@ -86,12 +71,9 @@ func (r *AzureK8sAutopilot) k8sSetNodeLockAnnotation(node *k8s.Node, annotationN
 }
 
 func (r *AzureK8sAutopilot) k8sRemoveNodeLockAnnotation(node *k8s.Node, annotationName string) (err error) {
-	annotationName = strings.ReplaceAll(annotationName, "~", "~0")
-	annotationName = strings.ReplaceAll(annotationName, "/", "~1")
-
-	patch := []k8sPatchRemove{{
+	patch := []k8s.PatchRemove{{
 		Op:    "remove",
-		Path:  fmt.Sprintf("/metadata/annotations/%s", annotationName),
+		Path:  fmt.Sprintf("/metadata/annotations/%s", k8s.PatchPathEsacpe(annotationName)),
 	}}
 
 	patchBytes, patchErr := json.Marshal(patch)
@@ -99,7 +81,6 @@ func (r *AzureK8sAutopilot) k8sRemoveNodeLockAnnotation(node *k8s.Node, annotati
 		err = patchErr
 		return
 	}
-	fmt.Println(string(patchBytes))
 
 	_, k8sError := r.k8sClient.CoreV1().Nodes().Patch(r.ctx, node.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if k8sError != nil {
