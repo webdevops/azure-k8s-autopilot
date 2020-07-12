@@ -57,7 +57,6 @@ type (
 	OptsDrain struct {
 		KubectlPath      string        `long:"drain.kubectl"            env:"DRAIN_KUBECTL"            description:"Path to kubectl binary" default:"kubectl"`
 		Enable           bool          `long:"drain.enable"             env:"DRAIN_ENABLE"             description:"Enable drain handling"`
-		NotBefore        time.Duration `long:"drain.not-before"         env:"DRAIN_NOT_BEFORE"         description:"Dont drain before this time" default:"5m"`
 		DeleteLocalData  bool          `long:"drain.delete-local-data"  env:"DRAIN_DELETE_LOCAL_DATA"  description:"Continue even if there are pods using emptyDir (local data that will be deleted when the node is drained)"`
 		Force            bool          `long:"drain.force"              env:"DRAIN_FORCE"              description:"Continue even if there are pods not managed by a ReplicationController, ReplicaSet, Job, DaemonSet or StatefulSet"`
 		GracePeriod      int64         `long:"drain.grace-period"       env:"DRAIN_GRACE_PERIOD"       description:"Period of time in seconds given to each pod to terminate gracefully. If negative, the default value specified in the pod will be used."`
