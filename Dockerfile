@@ -23,6 +23,10 @@ RUN ./azure-k8s-autopilot --help
 # FINAL IMAGE
 #############################################
 FROM gcr.io/distroless/static
+
+ENV LOG_JSON=1\
+    DRAIN_KUBECTL=/kubectl
+
 COPY --from=build /kubectl /
 COPY --from=build /go/src/github.com/webdevops/azure-k8s-autopilot/azure-k8s-autopilot /
 USER 1000

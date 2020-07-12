@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -15,7 +16,7 @@ func (r *AzureK8sAutopilot) getK8sNodeList() (nodeList *k8s.NodeList, err error)
 	ctx := context.Background()
 
 	opts := metav1.ListOptions{}
-	opts.LabelSelector = r.K8s.NodeLabelSelector
+	opts.LabelSelector = r.Config.K8S.NodeLabelSelector
 	list, k8sError := r.k8sClient.CoreV1().Nodes().List(ctx, opts)
 	if k8sError != nil {
 		err = k8sError
@@ -107,4 +108,25 @@ func (r *AzureK8sAutopilot) k8sGetNodeLockAnnotation(node *k8s.Node, annotationN
 	}
 
 	return
+}
+
+func (r *AzureK8sAutopilot) k8sDrainNode(contextLogger *log.Entry, node *k8s.Node) error {
+	if !r.Config.Drain.Enable {
+		contextLogger.Infof("not draining node %s, disable", node.Name)
+		return nil
+	}
+
+	kubectl := k8s.Kubectl{}
+	kubectl.Conf = r.Config.Drain
+	kubectl.SetNode(node.Name)
+	kubectl.SetLogger(contextLogger)
+	return kubectl.NodeDrain()
+}
+
+func (r *AzureK8sAutopilot) k8sUncordonNode(contextLogger *log.Entry, node *k8s.Node) error {
+	kubectl := k8s.Kubectl{}
+	kubectl.Conf = r.Config.Drain
+	kubectl.SetNode(node.Name)
+	kubectl.SetLogger(contextLogger)
+	return kubectl.NodeUncordon()
 }

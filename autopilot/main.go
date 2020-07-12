@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	cron "github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
+	"github.com/webdevopos/azure-k8s-autopilot/config"
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
 	"golang.org/x/net/context"
 	"k8s.io/client-go/kubernetes"
@@ -27,38 +28,7 @@ type (
 		DryRun bool
 
 		ctx context.Context
-
-		K8s struct {
-			NodeLabelSelector  string
-		}
-
-		Repair struct {
-			Crontab           *string
-			NotReadyThreshold *time.Duration
-			LockDuration      *time.Duration
-			LockDurationError *time.Duration
-			Limit             int
-
-			NodeLockAnnotation string
-
-			VmssAction string
-			VmAction   string
-
-			ProvisioningState    []string
-			provisioningStateAll bool
-		}
-
-		Update struct {
-			Crontab           *string
-			LockDuration      *time.Duration
-			LockDurationError *time.Duration
-			Limit             int
-
-			NodeLockAnnotation string
-
-			ProvisioningState    []string
-			provisioningStateAll bool
-		}
+		Config config.Opts
 
 		prometheus struct {
 			repair struct {
@@ -70,8 +40,6 @@ type (
 				count *prometheus.CounterVec
 			}
 		}
-
-		Notification []string
 
 		azureAuthorizer autorest.Authorizer
 		k8sClient       *kubernetes.Clientset
@@ -91,13 +59,13 @@ func (r *AzureK8sAutopilot) Init() {
 	r.nodeUpdateLock = cache.New(15*time.Minute, 1*time.Minute)
 	r.ctx = context.Background()
 
-	r.Repair.provisioningStateAll = false
-	for key, val := range r.Repair.ProvisioningState {
+	r.Config.Repair.ProvisioningStateAll = false
+	for key, val := range r.Config.Repair.ProvisioningState {
 		val = strings.ToLower(val)
-		r.Repair.ProvisioningState[key] = val
+		r.Config.Repair.ProvisioningState[key] = val
 
 		if val == "*" {
-			r.Repair.provisioningStateAll = true
+			r.Config.Repair.ProvisioningStateAll = true
 		}
 	}
 }
@@ -168,7 +136,7 @@ func (r *AzureK8sAutopilot) initMetrics() {
 func (r *AzureK8sAutopilot) Run() {
 	log.Infof("starting cluster check loop")
 
-	config, _ := json.Marshal(r)
+	config, _ := json.Marshal(r.Config)
 	log.Info(string(config))
 
 	cron := cron.New(
@@ -182,12 +150,12 @@ func (r *AzureK8sAutopilot) Run() {
 		)
 
 	// repair job
-	if r.Repair.Crontab != nil {
-		_, err := cron.AddFunc(*r.Repair.Crontab, func() {
+	if r.Config.Repair.Crontab != "" {
+		_, err := cron.AddFunc(r.Config.Repair.Crontab, func() {
 			contextLogger := log.WithField("job", "repair")
 
 			// concurrency repair limit
-			if r.Repair.Limit > 0 && r.nodeRepairLock.ItemCount() >= r.Update.Limit {
+			if r.Config.Repair.Limit > 0 && r.nodeRepairLock.ItemCount() >= r.Config.Repair.Limit {
 				contextLogger.Infof("concurrent repair limit reached, skipping run")
 			} else {
 				start := time.Now()
@@ -203,17 +171,17 @@ func (r *AzureK8sAutopilot) Run() {
 	}
 
 	// upgrade job
-	if r.Update.Crontab != nil {
-		_, err := cron.AddFunc(*r.Update.Crontab, func() {
+	if r.Config.Update.Crontab != "" {
+		_, err := cron.AddFunc(r.Config.Update.Crontab, func() {
 			contextLogger := log.WithField("job", "update")
 
 			// concurrency repair limit
-			if r.Update.Limit > 0 && r.nodeUpdateLock.ItemCount() >= r.Update.Limit {
+			if r.Config.Update.Limit > 0 && r.nodeUpdateLock.ItemCount() >= r.Config.Update.Limit {
 				contextLogger.Infof("concurrent update limit reached, skipping run")
 			} else {
 				contextLogger.Infoln("starting update check")
 				start := time.Now()
-				r.upgradeRun(contextLogger)
+				r.updateRun(contextLogger)
 				runtime := time.Now().Sub(start)
 				contextLogger.WithField("duration", runtime.String()).Infof("finished after %s", runtime.String())
 			}
@@ -231,7 +199,7 @@ func (r *AzureK8sAutopilot) sendNotificationf(message string, args ...interface{
 }
 
 func (r *AzureK8sAutopilot) sendNotification(message string) {
-	for _, url := range r.Notification {
+	for _, url := range r.Config.Notification {
 		if err := shoutrrr.Send(url, message); err != nil {
 			log.Errorf("Unable to send shoutrrr notification: %v", err.Error())
 		}
@@ -245,8 +213,9 @@ func (r *AzureK8sAutopilot) syncNodeLockCache(contextLogger *log.Entry, nodeList
 
 	for _, node := range nodeList.GetNodes() {
 		if lockDuration, exists := r.k8sGetNodeLockAnnotation(node, annotationName); exists {
-			// skip if lock annotation is not found
+			// check if annotation is valid and if node status is ok
 			if lockDuration == nil || lockDuration.Seconds() <= 0 {
+				// remove annotation
 				contextLogger.Debugf("removing lock annotation \"%s\" from node %s", annotationName, node.Name)
 				if err := r.k8sRemoveNodeLockAnnotation(node, annotationName); err != nil {
 					contextLogger.Error(err)
@@ -257,6 +226,28 @@ func (r *AzureK8sAutopilot) syncNodeLockCache(contextLogger *log.Entry, nodeList
 			// add to lock cache
 			contextLogger.Debugf("found existing lock \"%s\" for node %s, duration: %s", annotationName, node.Name, lockDuration.String())
 			cacheLock.Add(node.Name, true, *lockDuration) //nolint:golint,errcheck
+		}
+	}
+}
+
+func (r *AzureK8sAutopilot) autoUncordonExpiredNodes(contextLogger *log.Entry, nodeList *k8s.NodeList, annotationName string) {
+	// lock cache clear
+	contextLogger.Debugf("checking expired but still cordoned nodes for annotation \"%s\"", annotationName)
+
+	for _, node := range nodeList.GetNodes() {
+		if lockDuration, exists := r.k8sGetNodeLockAnnotation(node, annotationName); exists {
+			// check if annotation is valid and if node status is ok
+			if lockDuration == nil || lockDuration.Seconds() <= 0 {
+				// check if node is cordoned
+				if node.Spec.Unschedulable {
+					contextLogger.Errorf("node %s is still cordoned, uncording it", node.Name)
+
+					// uncordon node
+					if err := r.k8sUncordonNode(contextLogger, node); err != nil {
+						contextLogger.Errorf("node %s failed to uncordon: %v", node.Name, err)
+					}
+				}
+			}
 		}
 	}
 }

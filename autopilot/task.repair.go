@@ -15,9 +15,9 @@ func (r *AzureK8sAutopilot) repairRun(contextLogger *log.Entry) {
 		return
 	}
 
-	r.syncNodeLockCache(contextLogger, nodeList, r.Repair.NodeLockAnnotation, r.nodeRepairLock)
+	r.syncNodeLockCache(contextLogger, nodeList, r.Config.Repair.NodeLockAnnotation, r.nodeRepairLock)
 
-	repairThresholdSeconds := r.Repair.NotReadyThreshold.Seconds()
+	repairThresholdSeconds := r.Config.Repair.NotReadyThreshold.Seconds()
 
 	r.nodeRepairLock.DeleteExpired()
 
@@ -53,7 +53,7 @@ nodeLoop:
 
 			// check if heartbeat already exceeded threshold
 			if nodeLastHeartbeatAge < repairThresholdSeconds {
-				nodeContextLogger.Infof("detected unhealthy node %s (last heartbeat: %s), deadline of %v not reached", node.Name, nodeLastHeartbeat, r.Repair.NotReadyThreshold.String())
+				nodeContextLogger.Infof("detected unhealthy node %s (last heartbeat: %s), deadline of %v not reached", node.Name, nodeLastHeartbeat, r.Config.Repair.NotReadyThreshold.String())
 				continue nodeLoop
 			}
 
@@ -71,7 +71,7 @@ nodeLoop:
 				}
 
 				// concurrency repair limit
-				if r.Repair.Limit > 0 && r.nodeRepairLock.ItemCount() >= r.Repair.Limit {
+				if r.Config.Repair.Limit > 0 && r.nodeRepairLock.ItemCount() >= r.Config.Repair.Limit {
 					nodeContextLogger.Infof("detected unhealthy node %s (last heartbeat: %s), skipping due to concurrent repair limit", node.Name, nodeLastHeartbeat)
 					continue nodeLoop
 				}
@@ -87,7 +87,7 @@ nodeLoop:
 
 				if r.DryRun {
 					nodeContextLogger.Infof("node %s repair skipped, dry run", node.Name)
-					r.nodeRepairLock.Add(node.Name, true, *r.Repair.LockDuration) //nolint:golint,errcheck
+					r.nodeRepairLock.Add(node.Name, true, r.Config.Repair.LockDuration) //nolint:golint,errcheck
 					continue nodeLoop
 				}
 
@@ -102,15 +102,15 @@ nodeLoop:
 
 				if err != nil {
 					nodeContextLogger.Errorf("node %s repair failed: %s", node.Name, err.Error())
-					r.nodeRepairLock.Add(node.Name, true, *r.Repair.LockDurationError) //nolint:golint,errcheck
-					if k8sErr := r.k8sSetNodeLockAnnotation(node, r.Repair.NodeLockAnnotation, *r.Repair.LockDurationError); k8sErr != nil {
+					r.nodeRepairLock.Add(node.Name, true, r.Config.Repair.LockDurationError) //nolint:golint,errcheck
+					if k8sErr := r.k8sSetNodeLockAnnotation(node, r.Config.Repair.NodeLockAnnotation, r.Config.Repair.LockDurationError); k8sErr != nil {
 						nodeContextLogger.Error(k8sErr)
 					}
 					continue nodeLoop
 				} else {
 					// lock vm for next redeploy, can take up to 15 mins
-					r.nodeRepairLock.Add(node.Name, true, *r.Repair.LockDuration) //nolint:golint,errcheck
-					if k8sErr := r.k8sSetNodeLockAnnotation(node, r.Repair.NodeLockAnnotation, *r.Repair.LockDuration); k8sErr != nil {
+					r.nodeRepairLock.Add(node.Name, true, r.Config.Repair.LockDuration) //nolint:golint,errcheck
+					if k8sErr := r.k8sSetNodeLockAnnotation(node, r.Config.Repair.NodeLockAnnotation, r.Config.Repair.LockDuration); k8sErr != nil {
 						nodeContextLogger.Error(k8sErr)
 					}
 					nodeContextLogger.Infof("node %s successfully scheduled for repair", node.Name)
