@@ -3,7 +3,6 @@ package k8s
 import (
 	"fmt"
 	v1 "k8s.io/api/core/v1"
-	"strings"
 )
 
 type (
@@ -24,8 +23,7 @@ func (n *NodeList) GetAzureVmssList() (vmssList map[string]*NodeInfo, err error)
 	vmssList = map[string]*NodeInfo{}
 
 	for _, node := range n.GetNodes() {
-		nodeProviderId := node.Spec.ProviderID
-		if strings.HasPrefix(nodeProviderId, "azure://") {
+		if node.IsAzureProvider() {
 			// parse node informations from provider ID
 			nodeInfo, parseErr := ExtractNodeInfo(node)
 			if parseErr != nil {
@@ -57,4 +55,3 @@ func (n *NodeList) FindNodeByProviderId(providerId string) (ret *Node) {
 	}
 	return
 }
-

@@ -6,7 +6,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
 	log "github.com/sirupsen/logrus"
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"strings"
 )
 
@@ -109,8 +108,13 @@ func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, no
 	}
 
 	// trigger update call
-	_, err = vmssClient.UpdateInstances(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, vmssInstanceUpdateOpts)
+	future, err := vmssClient.UpdateInstances(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, vmssInstanceUpdateOpts)
 	if err != nil {
+		return err
+	}
+
+	// wait for update
+	if err := future.WaitForCompletionRef(r.ctx, vmssClient.Client); err != nil {
 		return err
 	}
 

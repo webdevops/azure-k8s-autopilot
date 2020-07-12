@@ -96,9 +96,14 @@ vmssLoop:
 						r.updateNodeLock(vmssInstanceContextLogger, node, r.Config.Update.LockDurationError)
 						continue vmssInstanceLoop
 					} else {
+						// uncordon node
+						if err := r.k8sUncordonNode(contextLogger, node); err != nil {
+							vmssInstanceContextLogger.Errorf("node %s failed to uncordon: %v", node.Name, err)
+						}
+
 						// lock vm for next redeploy, can take up to 15 mins
 						r.updateNodeLock(vmssInstanceContextLogger, node, r.Config.Update.LockDuration)
-						vmssInstanceContextLogger.Infof("node %s successfully scheduled for update", node.Name)
+						vmssInstanceContextLogger.Infof("node %s successfully updated", node.Name)
 					}
 				}
 			}

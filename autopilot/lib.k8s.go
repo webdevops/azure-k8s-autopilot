@@ -11,7 +11,6 @@ import (
 	"time"
 )
 
-
 func (r *AzureK8sAutopilot) getK8sNodeList() (nodeList *k8s.NodeList, err error) {
 	ctx := context.Background()
 
@@ -23,7 +22,7 @@ func (r *AzureK8sAutopilot) getK8sNodeList() (nodeList *k8s.NodeList, err error)
 		return
 	}
 
-	nodeList = &k8s.NodeList{NodeList:list}
+	nodeList = &k8s.NodeList{NodeList: list}
 
 	// fetch all nodes
 	for {
@@ -73,8 +72,8 @@ func (r *AzureK8sAutopilot) k8sSetNodeLockAnnotation(node *k8s.Node, annotationN
 
 func (r *AzureK8sAutopilot) k8sRemoveNodeLockAnnotation(node *k8s.Node, annotationName string) (err error) {
 	patch := []k8s.PatchRemove{{
-		Op:    "remove",
-		Path:  fmt.Sprintf("/metadata/annotations/%s", k8s.PatchPathEsacpe(annotationName)),
+		Op:   "remove",
+		Path: fmt.Sprintf("/metadata/annotations/%s", k8s.PatchPathEsacpe(annotationName)),
 	}}
 
 	patchBytes, patchErr := json.Marshal(patch)

@@ -22,22 +22,23 @@ import (
 	"time"
 )
 
-
 type (
 	AzureK8sAutopilot struct {
 		DryRun bool
 
-		ctx context.Context
+		ctx    context.Context
 		Config config.Opts
 
 		prometheus struct {
 			repair struct {
 				count      *prometheus.CounterVec
 				nodeStatus *prometheus.GaugeVec
+				duration *prometheus.GaugeVec
 			}
 
 			update struct {
 				count *prometheus.CounterVec
+				duration *prometheus.GaugeVec
 			}
 		}
 
@@ -53,7 +54,8 @@ type (
 func (r *AzureK8sAutopilot) Init() {
 	r.initAzure()
 	r.initK8s()
-	r.initMetrics()
+	r.initMetricsRepair()
+	r.initMetricsUpdate()
 	r.cache = cache.New(1*time.Minute, 1*time.Minute)
 	r.nodeRepairLock = cache.New(15*time.Minute, 1*time.Minute)
 	r.nodeUpdateLock = cache.New(15*time.Minute, 1*time.Minute)
@@ -104,7 +106,7 @@ func (r *AzureK8sAutopilot) initK8s() {
 	}
 }
 
-func (r *AzureK8sAutopilot) initMetrics() {
+func (r *AzureK8sAutopilot) initMetricsRepair() {
 	r.prometheus.repair.nodeStatus = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "autopilot_repair_node_status",
@@ -123,6 +125,17 @@ func (r *AzureK8sAutopilot) initMetrics() {
 	)
 	prometheus.MustRegister(r.prometheus.repair.count)
 
+	r.prometheus.repair.duration = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "autopilot_repair_duration",
+			Help: "autopilot repair duration",
+		},
+		[]string{},
+	)
+	prometheus.MustRegister(r.prometheus.repair.duration)
+}
+
+func (r *AzureK8sAutopilot) initMetricsUpdate() {
 	r.prometheus.update.count = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "autopilot_update_count",
@@ -131,6 +144,15 @@ func (r *AzureK8sAutopilot) initMetrics() {
 		[]string{},
 	)
 	prometheus.MustRegister(r.prometheus.update.count)
+
+	r.prometheus.update.duration = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "autopilot_update_duration",
+			Help: "autopilot update duration",
+		},
+		[]string{},
+	)
+	prometheus.MustRegister(r.prometheus.update.duration)
 }
 
 func (r *AzureK8sAutopilot) Run() {
@@ -144,10 +166,10 @@ func (r *AzureK8sAutopilot) Run() {
 			cron.SkipIfStillRunning(
 				cron.PrintfLogger(
 					log.StandardLogger(),
-					),
 				),
 			),
-		)
+		),
+	)
 
 	// repair job
 	if r.Config.Repair.Crontab != "" {
@@ -162,6 +184,7 @@ func (r *AzureK8sAutopilot) Run() {
 				contextLogger.Infoln("starting repair check")
 				r.repairRun(contextLogger)
 				runtime := time.Now().Sub(start)
+				r.prometheus.repair.duration.WithLabelValues().Set(runtime.Seconds())
 				contextLogger.WithField("duration", runtime.String()).Infof("finished after %s", runtime.String())
 			}
 		})
@@ -183,6 +206,7 @@ func (r *AzureK8sAutopilot) Run() {
 				start := time.Now()
 				r.updateRun(contextLogger)
 				runtime := time.Now().Sub(start)
+				r.prometheus.update.duration.WithLabelValues().Set(runtime.Seconds())
 				contextLogger.WithField("duration", runtime.String()).Infof("finished after %s", runtime.String())
 			}
 		})
