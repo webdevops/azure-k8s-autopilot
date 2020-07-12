@@ -1,18 +1,41 @@
-package autopilot
+package k8s
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"regexp"
 	"strings"
 )
 
-func (r *AzureK8sAutopilot) buildNodeInfo(node *v1.Node) (*AzureK8sAutopilotNodeAzureInfo, error) {
+var (
+	azureSubscriptionRegexp   = regexp.MustCompile("^azure:///subscriptions/([^/]+)/resourceGroups/.*")
+	azureResourceGroupRegexp  = regexp.MustCompile("^azure:///subscriptions/[^/]+/resourceGroups/([^/]+)/.*")
+	azureVmssNameRegexp       = regexp.MustCompile("/providers/Microsoft.Compute/virtualMachineScaleSets/([^/]+)/.*")
+	azureVmssInstanceIdRegexp = regexp.MustCompile("/providers/Microsoft.Compute/virtualMachineScaleSets/[^/]+/virtualMachines/([^/]+)$")
+	azureVmNameRegexp         = regexp.MustCompile("/providers/Microsoft.Compute/virtualMachines/([^/]+)$")
+)
+
+type (
+	NodeInfo struct {
+		NodeName       string
+		NodeProviderId string
+		ProviderId     string
+
+		Subscription  string
+		ResourceGroup string
+
+		IsVmss         bool
+		VMScaleSetName string
+		VMInstanceID   string
+
+		VMname string
+	}
+)
+
+func ExtractNodeInfo(node *Node) (*NodeInfo, error) {
 	nodeProviderId := node.Spec.ProviderID
 
-	info := AzureK8sAutopilotNodeAzureInfo{}
+	info := NodeInfo{}
 	info.NodeName = node.Name
 	info.NodeProviderId = nodeProviderId
 	info.ProviderId = strings.TrimPrefix(nodeProviderId, "azure://")
@@ -61,35 +84,4 @@ func (r *AzureK8sAutopilot) buildNodeInfo(node *v1.Node) (*AzureK8sAutopilotNode
 	}
 
 	return &info, nil
-}
-
-func (r *AzureK8sAutopilot) getK8sNodeList() (*v1.NodeList, error) {
-	ctx := context.Background()
-
-	opts := metav1.ListOptions{}
-	opts.LabelSelector = r.K8s.NodeLabelSelector
-	list, err := r.k8sClient.CoreV1().Nodes().List(ctx, opts)
-	if err != nil {
-		return list, err
-	}
-
-	// fetch all nodes
-	for {
-		if list.RemainingItemCount == nil || *list.RemainingItemCount == 0 {
-			break
-		}
-
-		opts.Continue = list.Continue
-
-		remainList, err := r.k8sClient.CoreV1().Nodes().List(ctx, opts)
-		if err != nil {
-			return list, err
-		}
-
-		list.Continue = remainList.Continue
-		list.RemainingItemCount = remainList.RemainingItemCount
-		list.Items = append(list.Items, remainList.Items...)
-	}
-
-	return list, nil
 }

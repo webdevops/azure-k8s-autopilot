@@ -33,10 +33,10 @@ var opts struct {
 	LogJson bool `           long:"log.json"     env:"LOG_JSON" description:"Switch log output to json format"`
 
 	// k8s
-	K8sNodeLabelSelector string `long:"k8s.node.labelselector"   env:"K8S_NODE_LABELSELECTOR"           description:"Node Label selector which nodes should be checked"                                   default:""`
+	K8sNodeLabelSelector  string `long:"k8s.node.labelselector"     env:"K8S_NODE_LABELSELECTOR"           description:"Node Label selector which nodes should be checked"                 default:""`
 
 	// check settings
-	RepairInterval          time.Duration `long:"repair.interval"                 env:"REPAIR_INTERVAL"                 description:"Duration of check run"                                   default:"30s"`
+	RepairCrontab           *string       `long:"repair.crontab"                  env:"REPAIR_CRONTAB"                  description:"Crontab of check runs"                                   default:"@every 2m"`
 	RepairNotReadyThreshold time.Duration `long:"repair.notready-threshold"       env:"REPAIR_NOTREADY_THRESHOLD"       description:"Threshold (duration) when the automatic repair should be tried (eg. after 10 mins of NotReady state after last successfull heartbeat)"        default:"10m"`
 	RepairLimit             int           `long:"repair.concurrency"              env:"REPAIR_CONCURRENCY"              description:"How many VMs should be redeployed concurrently"          default:"1"`
 	RepairLockDuration      time.Duration `long:"repair.lock-duration"            env:"REPAIR_LOCK_DURATION"            description:"Duration how long should be waited for another redeploy" default:"30m"`
@@ -44,6 +44,14 @@ var opts struct {
 	RepairAzureVmssAction   string        `long:"repair.azure.vmss.action"        env:"REPAIR_AZURE_VMSS_ACTION"        description:"Defines the action which should be tried to repair the node (VMSS)" default:"redeploy" choice:"restart"  choice:"redeploy" choice:"reimage"`
 	RepairAzureVmAction     string        `long:"repair.azure.vm.action"          env:"REPAIR_AZURE_VM_ACTION"          description:"Defines the action which should be tried to repair the node (VM)"   default:"redeploy" choice:"restart"  choice:"redeploy"`
 	RepairProvisioningState []string      `long:"repair.azure.provisioningstate"  env:"REPAIR_AZURE_PROVISIONINGSTATE"  description:"Azure VM provisioning states where repair should be tried (eg. avoid repair in \"upgrading\" state; \"*\" to accept all states)"     default:"succeeded" default:"failed" env-delim:" "`
+	RepairNodeLockAnnotation string       `long:"repair.lock-annotation"           env:"REPAIR_LOCK_ANNOTATION"         description:"Node annotation for repair lock time"                                                                      default:"autopilot.webdevops.io/repair-lock"`
+
+	// upgrade settings
+	UpdateCrontab           *string       `long:"update.crontab"                  env:"UPDATE_CRONTAB"                  description:"Crontab of check runs"                                   default:"@every 15m"`
+	UpdateLimit             int           `long:"update.concurrency"              env:"UPDATE_CONCURRENCY"              description:"How many VMs should be updated concurrently"          default:"1"`
+	UpdateLockDuration      time.Duration `long:"update.lock-duration"            env:"UPDATE_LOCK_DURATION"            description:"Duration how long should be waited for another update" default:"30m"`
+	UpdateLockDurationError time.Duration `long:"update.lock-duration-error"      env:"UPDATE_LOCK_DURATION_ERROR"      description:"Duration how long should be waited for another update in case an error occurred" default:"5m"`
+	UpdateNodeLockAnnotation string       `long:"update.lock-annotation"          env:"UPDATE_LOCK_ANNOTATION"          description:"Node annotation for update lock time"                                                                      default:"autopilot.webdevops.io/update-lock"`
 
 	// notification
 	Notification []string `long:"notification" env:"NOTIFCATION" description:"Shoutrrr url for notifications (https://containrrr.github.io/shoutrrr/)" env-delim:" "`
@@ -95,12 +103,22 @@ func startAzureK8sAutorepair() {
 	autorepair := autopilot.AzureK8sAutopilot{}
 
 	// general
-	autorepair.Interval = &opts.RepairInterval
-	autorepair.NotReadyThreshold = &opts.RepairNotReadyThreshold
-	autorepair.LockDuration = &opts.RepairLockDuration
-	autorepair.LockDurationError = &opts.RepairLockDurationError
-	autorepair.Limit = opts.RepairLimit
 	autorepair.DryRun = opts.DryRun
+
+	// repair
+	autorepair.Repair.Crontab = opts.RepairCrontab
+	autorepair.Repair.NotReadyThreshold = &opts.RepairNotReadyThreshold
+	autorepair.Repair.LockDuration = &opts.RepairLockDuration
+	autorepair.Repair.LockDurationError = &opts.RepairLockDurationError
+	autorepair.Repair.Limit = opts.RepairLimit
+	autorepair.Repair.NodeLockAnnotation = opts.UpdateNodeLockAnnotation
+
+	// upgrade
+	autorepair.Update.Crontab = opts.UpdateCrontab
+	autorepair.Update.LockDuration = &opts.UpdateLockDuration
+	autorepair.Update.LockDurationError = &opts.UpdateLockDurationError
+	autorepair.Update.Limit = opts.UpdateLimit
+	autorepair.Update.NodeLockAnnotation = opts.UpdateNodeLockAnnotation
 
 	// k8s
 	autorepair.K8s.NodeLabelSelector = opts.K8sNodeLabelSelector
