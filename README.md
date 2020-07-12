@@ -66,4 +66,12 @@ for Kubernetes ServiceAccont is discoverd automatically (or you can use env path
 Metrics
 -------
 
-standard metrics only (see `:8080/metrics`)
+ (see `:8080/metrics`)
+
+| Metric                         | Description                                     |
+|:-------------------------------|:------------------------------------------------|
+| `autopilot_repair_count`       | Count of repair actions                         |
+| `autopilot_repair_node_status` | Node status                                     |
+| `autopilot_repair_duration`    | Duration of repair task                         |
+| `autopilot_update_count`       | Count of update actions                         |
+| `autopilot_update_duration`    | Duration of last exec                           |

@@ -82,6 +82,9 @@ nodeLoop:
 				continue nodeLoop
 			}
 
+			// increase metric counter
+			r.prometheus.repair.count.WithLabelValues().Inc()
+
 			if nodeInfo.IsVmss {
 				// node is VMSS instance
 				err = r.azureVmssInstanceRepair(nodeContextLogger, *nodeInfo)
@@ -89,9 +92,9 @@ nodeLoop:
 				// node is a VM
 				err = r.azureVmRepair(nodeContextLogger, *nodeInfo)
 			}
-			r.prometheus.repair.count.WithLabelValues().Inc()
 
 			if err != nil {
+				r.prometheus.general.errors.WithLabelValues("azure").Inc()
 				nodeContextLogger.Errorf("node %s repair failed: %s", node.Name, err.Error())
 				r.nodeRepairLock.Add(node.Name, true, r.Config.Repair.LockDurationError) //nolint:golint,errcheck
 				if k8sErr := r.k8sSetNodeLockAnnotation(node, r.Config.Repair.NodeLockAnnotation, r.Config.Repair.LockDurationError); k8sErr != nil {
@@ -107,7 +110,7 @@ nodeLoop:
 				nodeContextLogger.Infof("node %s successfully scheduled for repair", node.Name)
 			}
 		} else {
-			// node is NOT healthy
+			// node IS healthy
 			nodeContextLogger.Debugf("detected healthy node %s", node.Name)
 			r.nodeRepairLock.Delete(node.Name)
 		}

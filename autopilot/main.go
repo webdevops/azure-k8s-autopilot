@@ -30,6 +30,10 @@ type (
 		Config config.Opts
 
 		prometheus struct {
+			general struct {
+				errors      *prometheus.CounterVec
+			}
+
 			repair struct {
 				count      *prometheus.CounterVec
 				nodeStatus *prometheus.GaugeVec
@@ -106,11 +110,22 @@ func (r *AzureK8sAutopilot) initK8s() {
 	}
 }
 
+func (r *AzureK8sAutopilot) initMetricsGeneral() {
+	r.prometheus.general.errors = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "autopilot_errors",
+			Help: "azure_k8s_autopilot error counter",
+		},
+		[]string{"scope"},
+	)
+	prometheus.MustRegister(r.prometheus.general.errors)
+}
+
 func (r *AzureK8sAutopilot) initMetricsRepair() {
 	r.prometheus.repair.nodeStatus = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "autopilot_repair_node_status",
-			Help: "autopilot repair node status",
+			Help: "azure_k8s_autopilot repair node status",
 		},
 		[]string{"nodeName"},
 	)
@@ -119,7 +134,7 @@ func (r *AzureK8sAutopilot) initMetricsRepair() {
 	r.prometheus.repair.count = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "autopilot_repair_count",
-			Help: "autopilot repair counter",
+			Help: "azure_k8s_autopilot repair counter",
 		},
 		[]string{},
 	)
@@ -128,7 +143,7 @@ func (r *AzureK8sAutopilot) initMetricsRepair() {
 	r.prometheus.repair.duration = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "autopilot_repair_duration",
-			Help: "autopilot repair duration",
+			Help: "azure_k8s_autopilot repair duration",
 		},
 		[]string{},
 	)
@@ -139,7 +154,7 @@ func (r *AzureK8sAutopilot) initMetricsUpdate() {
 	r.prometheus.update.count = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "autopilot_update_count",
-			Help: "autopilot update counter",
+			Help: "azure_k8s_autopilot update counter",
 		},
 		[]string{},
 	)
@@ -148,7 +163,7 @@ func (r *AzureK8sAutopilot) initMetricsUpdate() {
 	r.prometheus.update.duration = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "autopilot_update_duration",
-			Help: "autopilot update duration",
+			Help: "azure_k8s_autopilot update duration",
 		},
 		[]string{},
 	)

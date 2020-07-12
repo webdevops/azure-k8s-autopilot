@@ -88,10 +88,11 @@ vmssLoop:
 					}
 
 					// trigger Azure VMSS instance update
-					err = r.azureVmssInstanceUpdate(vmssInstanceContextLogger, *nodeInfo)
 					r.prometheus.update.count.WithLabelValues().Inc()
+					err = r.azureVmssInstanceUpdate(vmssInstanceContextLogger, *nodeInfo)
 
 					if err != nil {
+						r.prometheus.general.errors.WithLabelValues("azure").Inc()
 						vmssInstanceContextLogger.Errorf("node %s upgrade failed: %s", node.Name, err.Error())
 						r.updateNodeLock(vmssInstanceContextLogger, node, r.Config.Update.LockDurationError)
 						continue vmssInstanceLoop

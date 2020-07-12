@@ -35,9 +35,9 @@ type (
 
 		// upgrade settings
 		Update struct {
-			Crontab              string        `long:"update.crontab"                  env:"UPDATE_CRONTAB"                  description:"Crontab of check runs"                                   default:"@every 15m"`
-			Limit                int           `long:"update.concurrency"              env:"UPDATE_CONCURRENCY"              description:"How many VMs should be updated concurrently"          default:"1"`
-			LockDuration         time.Duration `long:"update.lock-duration"            env:"UPDATE_LOCK_DURATION"            description:"Duration how long should be waited for another update" default:"30m"`
+			Crontab              string        `long:"update.crontab"                  env:"UPDATE_CRONTAB"                  description:"Crontab of check runs"                                 default:"@every 15m"`
+			Limit                int           `long:"update.concurrency"              env:"UPDATE_CONCURRENCY"              description:"How many VMs should be updated concurrently"           default:"1"`
+			LockDuration         time.Duration `long:"update.lock-duration"            env:"UPDATE_LOCK_DURATION"            description:"Duration how long should be waited for another update" default:"15m"`
 			LockDurationError    time.Duration `long:"update.lock-duration-error"      env:"UPDATE_LOCK_DURATION_ERROR"      description:"Duration how long should be waited for another update in case an error occurred" default:"5m"`
 			ProvisioningState    []string      `long:"update.azure.provisioningstate"  env:"UPDATE_AZURE_PROVISIONINGSTATE"  description:"Azure VM provisioning states where update should be tried (eg. avoid repair in \"upgrading\" state; \"*\" to accept all states)"     default:"succeeded" default:"failed" env-delim:" "`
 			ProvisioningStateAll bool
