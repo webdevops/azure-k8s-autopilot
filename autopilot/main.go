@@ -183,7 +183,7 @@ func (r *AzureK8sAutopilot) Run() {
 
 	// repair job
 	if r.Repair.Crontab != nil {
-		cron.AddFunc(*r.Repair.Crontab, func() {
+		_, err := cron.AddFunc(*r.Repair.Crontab, func() {
 			contextLogger := log.WithField("job", "repair")
 
 			// concurrency repair limit
@@ -197,11 +197,14 @@ func (r *AzureK8sAutopilot) Run() {
 				contextLogger.WithField("duration", runtime.String()).Infof("finished after %s", runtime.String())
 			}
 		})
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 
 	// upgrade job
 	if r.Update.Crontab != nil {
-		cron.AddFunc(*r.Update.Crontab, func() {
+		_, err := cron.AddFunc(*r.Update.Crontab, func() {
 			contextLogger := log.WithField("job", "update")
 
 			// concurrency repair limit
@@ -215,6 +218,9 @@ func (r *AzureK8sAutopilot) Run() {
 				contextLogger.WithField("duration", runtime.String()).Infof("finished after %s", runtime.String())
 			}
 		})
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 
 	cron.Start()

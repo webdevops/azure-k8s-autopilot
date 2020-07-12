@@ -15,7 +15,7 @@ type (
 func (n *NodeList) GetNodes() (list []*Node) {
 	for _, value := range n.Items {
 		node := value
-		list = append(list, &Node{&node})
+		list = append(list, &Node{Node: &node})
 	}
 	return
 }

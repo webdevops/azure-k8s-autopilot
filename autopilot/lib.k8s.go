@@ -22,7 +22,7 @@ func (r *AzureK8sAutopilot) getK8sNodeList() (nodeList *k8s.NodeList, err error)
 		return
 	}
 
-	nodeList = &k8s.NodeList{list}
+	nodeList = &k8s.NodeList{NodeList:list}
 
 	// fetch all nodes
 	for {
