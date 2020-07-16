@@ -49,7 +49,6 @@ Application Options:
       --update.lock-annotation=                             Node annotation for update lock time (default: autopilot.webdevops.io/update-lock) [$UPDATE_LOCK_ANNOTATION]
       --drain.kubectl=                                      Path to kubectl binary (default: kubectl) [$DRAIN_KUBECTL]
       --drain.enable                                        Enable drain handling [$DRAIN_ENABLE]
-      --drain.not-before=                                   Dont drain before this time (default: 5m) [$DRAIN_NOT_BEFORE]
       --drain.delete-local-data                             Continue even if there are pods using emptyDir (local data that will be deleted when the node is drained) [$DRAIN_DELETE_LOCAL_DATA]
       --drain.force                                         Continue even if there are pods not managed by a ReplicationController, ReplicaSet, Job, DaemonSet or StatefulSet [$DRAIN_FORCE]
       --drain.grace-period=                                 Period of time in seconds given to each pod to terminate gracefully. If negative, the default value specified in the pod will be used.
@@ -58,7 +57,7 @@ Application Options:
       --drain.pod-selector=                                 Label selector to filter pods on the node [$DRAIN_POD_SELECTOR]
       --drain.timeout=                                      The length of time to wait before giving up, zero means infinite (default: 0s) [$DRAIN_TIMEOUT]
       --drain.dry-run                                       Do not drain, uncordon or label any node [$DRAIN_DRY_RUN]
-      --notification=                                       Shoutrrr url for notifications (https://containrrr.github.io/shoutrrr/) [$NOTIFCATION]
+      --notification=                                       Shoutrrr url for notifications (https://containrrr.github.io/shoutrrr/) [$NOTIFICATION]
       --bind=                                               Server address (default: :8080) [$SERVER_BIND]
 
 Help Options:
