@@ -80,7 +80,7 @@ func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *log.Entry, nodeInfo k8s
 	return err
 }
 
-func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, nodeInfo k8s.NodeInfo) error {
+func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, nodeInfo k8s.NodeInfo, doReimage bool) error {
 	var err error
 
 	vmssClient := compute.NewVirtualMachineScaleSetsClient(nodeInfo.Subscription)
@@ -100,22 +100,36 @@ func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, no
 		return err
 	}
 
-	contextLogger.Info("scheduling Azure VMSS instance update")
 	r.sendNotificationf("trigger automatic update of K8s node %v", nodeInfo.NodeName)
 
+	// trigger update call
+	contextLogger.Info("scheduling Azure VMSS instance update")
 	vmssInstanceUpdateOpts := compute.VirtualMachineScaleSetVMInstanceRequiredIDs{
 		InstanceIds: &[]string{*vmInstance.InstanceID},
 	}
-
-	// trigger update call
-	future, err := vmssClient.UpdateInstances(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, vmssInstanceUpdateOpts)
-	if err != nil {
+	if future, err := vmssClient.UpdateInstances(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, vmssInstanceUpdateOpts); err == nil {
+		// wait for update
+		if err := future.WaitForCompletionRef(r.ctx, vmssClient.Client); err != nil {
+			return err
+		}
+	} else {
 		return err
 	}
 
-	// wait for update
-	if err := future.WaitForCompletionRef(r.ctx, vmssClient.Client); err != nil {
-		return err
+	// trigger reimage call
+	if doReimage {
+		contextLogger.Info("scheduling Azure VMSS instance reimage")
+		vmssInstanceReimage := compute.VirtualMachineScaleSetReimageParameters{
+			InstanceIds: &[]string{nodeInfo.VMInstanceID},
+		}
+		if future, err := vmssClient.Reimage(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceReimage); err == nil {
+			// wait for update
+			if err := future.WaitForCompletionRef(r.ctx, vmssClient.Client); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 
 	return nil

@@ -89,7 +89,8 @@ vmssLoop:
 
 					// trigger Azure VMSS instance update
 					r.prometheus.update.count.WithLabelValues().Inc()
-					err = r.azureVmssInstanceUpdate(vmssInstanceContextLogger, *nodeInfo)
+					doReimage := r.Config.Update.AzureVmssAction == "update+reimage"
+					err = r.azureVmssInstanceUpdate(vmssInstanceContextLogger, *nodeInfo, doReimage)
 
 					if err != nil {
 						r.prometheus.general.errors.WithLabelValues("azure").Inc()

@@ -44,6 +44,7 @@ Application Options:
       --update.concurrency=                                 How many VMs should be updated concurrently (default: 1) [$UPDATE_CONCURRENCY]
       --update.lock-duration=                               Duration how long should be waited for another update (default: 15m) [$UPDATE_LOCK_DURATION]
       --update.lock-duration-error=                         Duration how long should be waited for another update in case an error occurred (default: 5m) [$UPDATE_LOCK_DURATION_ERROR]
+      --update.azure.vmss.action=[update|update+reimage]    Defines the action which should be tried to update the node (VMSS) (default: update+reimage) [$UPDATE_AZURE_VMSS_ACTION]
       --update.azure.provisioningstate=                     Azure VM provisioning states where update should be tried (eg. avoid repair in "upgrading" state; "*" to accept all states) (default:
                                                             succeeded, failed) [$UPDATE_AZURE_PROVISIONINGSTATE]
       --update.lock-annotation=                             Node annotation for update lock time (default: autopilot.webdevops.io/update-lock) [$UPDATE_LOCK_ANNOTATION]
