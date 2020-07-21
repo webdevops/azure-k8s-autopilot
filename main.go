@@ -9,7 +9,9 @@ import (
 	"github.com/webdevopos/azure-k8s-autopilot/config"
 	"net/http"
 	"os"
+	"path"
 	"runtime"
+	"strings"
 )
 
 const (
@@ -62,11 +64,26 @@ func initArgparser() {
 	if opts.Logger.Debug {
 		log.SetReportCaller(true)
 		log.SetLevel(log.TraceLevel)
+		log.SetFormatter(&log.TextFormatter{
+			CallerPrettyfier: func(f *runtime.Frame) (string, string) {
+				s := strings.Split(f.Function, ".")
+				funcName := s[len(s)-1]
+				return funcName, fmt.Sprintf("%s:%d", path.Base(f.File), f.Line)
+			},
+		})
 	}
 
 	// json log format
 	if opts.Logger.LogJson {
-		log.SetFormatter(&log.JSONFormatter{})
+		log.SetReportCaller(true)
+		log.SetFormatter(&log.JSONFormatter{
+			DisableTimestamp: true,
+			CallerPrettyfier: func(f *runtime.Frame) (string, string) {
+				s := strings.Split(f.Function, ".")
+				funcName := s[len(s)-1]
+				return funcName, fmt.Sprintf("%s:%d", path.Base(f.File), f.Line)
+			},
+		})
 	}
 }
 

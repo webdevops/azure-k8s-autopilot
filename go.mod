@@ -13,8 +13,9 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/prometheus/client_golang v0.9.3
 	github.com/robfig/cron/v3 v3.0.0
-	github.com/sirupsen/logrus v1.2.0
+	github.com/sirupsen/logrus v1.6.0
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344
+	golang.org/x/sys v0.0.0-20200720211630-cb9d2d5c5666 // indirect
 	k8s.io/api v0.18.0
 	k8s.io/apimachinery v0.18.0
 	k8s.io/client-go v0.18.0
