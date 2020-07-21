@@ -1,6 +1,10 @@
 package config
 
-import "time"
+import (
+	"time"
+	"encoding/json"
+	log "github.com/sirupsen/logrus"
+)
 
 type (
 	Opts struct {
@@ -67,3 +71,11 @@ type (
 		DryRun           bool          `long:"drain.dry-run"            env:"DRAIN_DRY_RUN"            description:"Do not drain, uncordon or label any node"`
 	}
 )
+
+func (o *Opts) GetJson() []byte {
+	jsonBytes, err := json.Marshal(o)
+	if err != nil {
+		log.Panic(err)
+	}
+	return jsonBytes
+}

@@ -32,7 +32,13 @@ func main() {
 	initArgparser()
 
 	log.Infof("starting Azure K8S cluster autopilot v%s (%s; %s; by %v)", gitTag, gitCommit, runtime.Version(), Author)
-	startAzureK8sAutorepair()
+	log.Info(string(opts.GetJson()))
+
+	autorepair := autopilot.AzureK8sAutopilot{
+		Config: opts,
+	}
+	autorepair.Init()
+	autorepair.Run()
 
 	log.Infof("starting http server on %s", opts.ServerBind)
 	startHttpServer()
@@ -85,15 +91,6 @@ func initArgparser() {
 			},
 		})
 	}
-}
-
-// Init and build Azure authorzier
-func startAzureK8sAutorepair() {
-	autorepair := autopilot.AzureK8sAutopilot{
-		Config: opts,
-	}
-	autorepair.Init()
-	autorepair.Run()
 }
 
 // start and handle prometheus handler
