@@ -12,14 +12,18 @@ type (
 	}
 )
 
+// check if node is an Azure node
 func (n *Node) IsAzureProvider() bool {
 	return strings.HasPrefix(n.Spec.ProviderID, "azure://")
 }
 
+// detect if node is ready/healthy
 func (n *Node) GetHealthStatus() (status bool, lastHeartbeat time.Time) {
-	// detect if node is ready/healthy
 	for _, condition := range n.Status.Conditions {
-		if condition.Type == "Ready" && condition.Status != "True" {
+		if condition.Type == "Ready" && condition.Status == "True" {
+			status = true
+			lastHeartbeat = condition.LastHeartbeatTime.Time
+		} else {
 			status = false
 			lastHeartbeat = condition.LastHeartbeatTime.Time
 		}
