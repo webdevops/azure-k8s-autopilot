@@ -58,6 +58,7 @@ type (
 func (r *AzureK8sAutopilot) Init() {
 	r.initAzure()
 	r.initK8s()
+	r.initMetricsGeneral()
 	r.initMetricsRepair()
 	r.initMetricsUpdate()
 	r.cache = cache.New(1*time.Minute, 1*time.Minute)
