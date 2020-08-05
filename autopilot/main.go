@@ -254,7 +254,7 @@ func (r *AzureK8sAutopilot) checkSelfEviction(node *k8s.Node) bool {
 	}
 
 	if *r.Config.Instance.Nodename == node.Name {
-		log.Infof("azure-k8s-autopilot is running on a effected node, self evicting")
+		log.Infof("azure-k8s-autopilot is running on an affected node, self evicting")
 		if r.cron.repair != nil {
 			r.cron.repair.Stop()
 		}
