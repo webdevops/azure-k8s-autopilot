@@ -1,0 +1,95 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: azure-k8s-autopilot
+  namespace: kube-system
+  labels:
+    app: azure-k8s-autopilot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: azure-k8s-autopilot
+  template:
+    metadata:
+      labels:
+        app: azure-k8s-autopilot
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8080"
+    spec:
+      serviceAccountName: azure-k8s-autopilot
+      containers:
+        - name: azure-k8s-autopilot
+          image: webdevops/azure-k8s-autopilot:development
+          imagePullPolicy: Always
+          env:
+            # General settings
+            - name: DRY_RUN
+              value: "true"
+            # Repair settings
+            - name: REPAIR_CRONTAB
+              value: "@every 2m"
+            # Update settings
+            - name: UPDATE_CRONTAB
+              value: "@every 2m"
+            - name: UPDATE_LOCK_DURATION
+              value: "30m"
+            - name: UPDATE_AZURE_VMSS_ACTION
+              value: "update+reimage"
+            # drain settings
+            - name: DRAIN_ENABLE
+              value: "true"
+            - name: DRAIN_FORCE
+              value: "true"
+            - name: DRAIN_IGNORE_DAEMONSETS
+              value: "true"
+            - name: DRAIN_DELETE_LOCAL_DATA
+              value: "true"
+            # Azure
+            - name: AZURE_TENANT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: azure-k8s-autopilot
+                  key: AZURE_TENANT_ID
+            - name: AZURE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: azure-k8s-autopilot
+                  key: AZURE_CLIENT_ID
+            - name: AZURE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: azure-k8s-autopilot
+                  key: AZURE_CLIENT_SECRET
+            # Instance
+            - name: INSTANCE_NODENAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: INSTANCE_POD
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: INSTANCE_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ['ALL']
+          ports:
+            - containerPort: 8080
+              name: http-metrics
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 100m
+              memory: 200Mi
+            requests:
+              cpu: 10m
+
