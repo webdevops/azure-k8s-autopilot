@@ -5,6 +5,7 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/containrrr/shoutrrr"
+	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 	cron "github.com/robfig/cron/v3"
@@ -178,6 +179,7 @@ func (r *AzureK8sAutopilot) initMetricsUpdate() {
 }
 
 func (r *AzureK8sAutopilot) Run() {
+	r.leaderElect()
 	log.Infof("starting cluster check loop")
 	// repair job
 	if r.Config.Repair.Crontab != "" {
@@ -248,8 +250,26 @@ func (r *AzureK8sAutopilot) Run() {
 	}
 }
 
+func (r *AzureK8sAutopilot) leaderElect() {
+	log.Info("trying to become leader")
+	if r.Config.Instance.Pod != nil && os.Getenv("POD_NAME") == "" {
+		err := os.Setenv("POD_NAME", *r.Config.Instance.Pod)
+		if err != nil {
+			log.Panic(err)
+		}
+	}
+
+	time.Sleep(15 * time.Second)
+	err := leader.Become(r.ctx, r.Config.K8S.LockName)
+	if err != nil {
+		log.Error(err, "Failed to retry for leader lock")
+		os.Exit(1)
+	}
+	log.Info("aquired leader lock, continue")
+}
+
 func (r *AzureK8sAutopilot) checkSelfEviction(node *k8s.Node) bool {
-	if r.Config.Instance.Nodename == nil || r.Config.Instance.Namespace == nil || r.Config.Instance.Pod == nil  {
+	if r.Config.Instance.Nodename == nil || r.Config.Instance.Namespace == nil || r.Config.Instance.Pod == nil {
 		return false
 	}
 
@@ -264,9 +284,9 @@ func (r *AzureK8sAutopilot) checkSelfEviction(node *k8s.Node) bool {
 		}
 
 		eviction := v1beta1.Eviction{
-			ObjectMeta:    v1.ObjectMeta{
-				Name:                       *r.Config.Instance.Pod,
-				Namespace:                  *r.Config.Instance.Namespace,
+			ObjectMeta: v1.ObjectMeta{
+				Name:      *r.Config.Instance.Pod,
+				Namespace: *r.Config.Instance.Namespace,
 			},
 		}
 		err := r.k8sClient.CoreV1().Pods(*r.Config.Instance.Namespace).Evict(r.ctx, &eviction)
@@ -278,7 +298,6 @@ func (r *AzureK8sAutopilot) checkSelfEviction(node *k8s.Node) bool {
 
 	return false
 }
-
 
 func (r *AzureK8sAutopilot) sendNotificationf(message string, args ...interface{}) {
 	r.sendNotification(fmt.Sprintf(message, args...))
