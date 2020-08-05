@@ -29,6 +29,11 @@ type (
 		ctx    context.Context
 		Config config.Opts
 
+		cron struct {
+			repair *cron.Cron
+			update *cron.Cron
+		}
+
 		prometheus struct {
 			general struct {
 				errors *prometheus.CounterVec
@@ -173,23 +178,19 @@ func (r *AzureK8sAutopilot) initMetricsUpdate() {
 
 func (r *AzureK8sAutopilot) Run() {
 	log.Infof("starting cluster check loop")
-
-	config, _ := json.Marshal(r.Config)
-	log.Info(string(config))
-
-	cron := cron.New(
-		cron.WithChain(
-			cron.SkipIfStillRunning(
-				cron.PrintfLogger(
-					log.StandardLogger(),
-				),
-			),
-		),
-	)
-
 	// repair job
 	if r.Config.Repair.Crontab != "" {
-		_, err := cron.AddFunc(r.Config.Repair.Crontab, func() {
+		r.cron.repair = cron.New(
+			cron.WithChain(
+				cron.SkipIfStillRunning(
+					cron.PrintfLogger(
+						log.StandardLogger(),
+					),
+				),
+			),
+		)
+
+		_, err := r.cron.repair.AddFunc(r.Config.Repair.Crontab, func() {
 			contextLogger := log.WithField("job", "repair")
 
 			// concurrency repair limit
@@ -207,11 +208,23 @@ func (r *AzureK8sAutopilot) Run() {
 		if err != nil {
 			log.Panic(err)
 		}
+
+		r.cron.repair.Start()
 	}
 
 	// upgrade job
 	if r.Config.Update.Crontab != "" {
-		_, err := cron.AddFunc(r.Config.Update.Crontab, func() {
+		r.cron.update = cron.New(
+			cron.WithChain(
+				cron.SkipIfStillRunning(
+					cron.PrintfLogger(
+						log.StandardLogger(),
+					),
+				),
+			),
+		)
+
+		_, err := r.cron.update.AddFunc(r.Config.Update.Crontab, func() {
 			contextLogger := log.WithField("job", "update")
 
 			// concurrency repair limit
@@ -229,6 +242,10 @@ func (r *AzureK8sAutopilot) Run() {
 		if err != nil {
 			log.Panic(err)
 		}
+
+		r.cron.update.Start()
+	}
+}
 	}
 
 	cron.Start()
