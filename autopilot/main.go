@@ -1,7 +1,6 @@
 package autopilot
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
@@ -13,6 +12,8 @@ import (
 	"github.com/webdevopos/azure-k8s-autopilot/config"
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
 	"golang.org/x/net/context"
+	"k8s.io/api/policy/v1beta1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -246,10 +247,38 @@ func (r *AzureK8sAutopilot) Run() {
 		r.cron.update.Start()
 	}
 }
+
+func (r *AzureK8sAutopilot) checkSelfEviction(node *k8s.Node) bool {
+	if r.Config.Instance.Nodename == nil || r.Config.Instance.Namespace == nil || r.Config.Instance.Pod == nil  {
+		return false
 	}
 
-	cron.Start()
+	if *r.Config.Instance.Nodename == node.Name {
+		log.Infof("azure-k8s-autopilot is running on a effected node, self evicting")
+		if r.cron.repair != nil {
+			r.cron.repair.Stop()
+		}
+
+		if r.cron.repair != nil {
+			r.cron.update.Stop()
+		}
+
+		eviction := v1beta1.Eviction{
+			ObjectMeta:    v1.ObjectMeta{
+				Name:                       *r.Config.Instance.Pod,
+				Namespace:                  *r.Config.Instance.Namespace,
+			},
+		}
+		err := r.k8sClient.CoreV1().Pods(*r.Config.Instance.Namespace).Evict(r.ctx, &eviction)
+		if err != nil {
+			log.Errorf("unable to evict instance: %v", err)
+		}
+		return true
+	}
+
+	return false
 }
+
 
 func (r *AzureK8sAutopilot) sendNotificationf(message string, args ...interface{}) {
 	r.sendNotification(fmt.Sprintf(message, args...))

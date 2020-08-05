@@ -11,6 +11,13 @@ type (
 		// general settings
 		DryRun bool `long:"dry-run"           env:"DRY_RUN"   description:"Dry run (no redeploy triggered)"`
 
+		// instance
+		Instance struct {
+			Nodename  *string `long:"instance.nodename"    env:"INSTANCE_NODENAME"   description:"Name of node where autopilot is running"`
+			Namespace *string `long:"instance.namespace"   env:"INSTANCE_NAMESPACE"   description:"Name of namespace where autopilot is running"`
+			Pod       *string `long:"instance.pod"         env:"INSTANCE_POD"         description:"Name of pod where autopilot is running"`
+		}
+
 		// logger
 		Logger struct {
 			Debug   bool `           long:"debug"        env:"DEBUG"    description:"debug mode"`

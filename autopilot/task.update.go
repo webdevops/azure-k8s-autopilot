@@ -80,6 +80,11 @@ vmssLoop:
 						continue vmssInstanceLoop
 					}
 
+					// check if self eviction is needed
+					if r.checkSelfEviction(node) {
+						return
+					}
+
 					// drain node
 					if err := r.k8sDrainNode(contextLogger, node); err != nil {
 						vmssInstanceContextLogger.Errorf("node %s failed to drain: %v", node.Name, err)

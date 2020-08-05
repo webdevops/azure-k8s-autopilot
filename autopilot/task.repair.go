@@ -85,6 +85,11 @@ nodeLoop:
 			// increase metric counter
 			r.prometheus.repair.count.WithLabelValues().Inc()
 
+			// check if self eviction is needed
+			if r.checkSelfEviction(node) {
+				return
+			}
+
 			if nodeInfo.IsVmss {
 				// node is VMSS instance
 				err = r.azureVmssInstanceRepair(nodeContextLogger, *nodeInfo)
