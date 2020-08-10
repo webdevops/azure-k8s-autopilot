@@ -23,7 +23,7 @@ spec:
       serviceAccountName: azure-k8s-autopilot
       containers:
         - name: azure-k8s-autopilot
-          image: webdevops/azure-k8s-autopilot:development
+          image: webdevops/azure-k8s-autopilot:latest
           imagePullPolicy: Always
           env:
             # General settings
@@ -92,4 +92,14 @@ spec:
               memory: 200Mi
             requests:
               cpu: 10m
-
+          livenessProbe: &probe
+            httpGet:
+              path: /metrics
+              port: 8080
+            periodSeconds: 15
+            initialDelaySeconds: 10
+          readinessProbe:
+            <<: *probe
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            failureThreshold: 30
