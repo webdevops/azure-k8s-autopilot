@@ -178,76 +178,86 @@ func (r *AzureK8sAutopilot) initMetricsUpdate() {
 	prometheus.MustRegister(r.prometheus.update.duration)
 }
 
-func (r *AzureK8sAutopilot) Run() {
-	r.leaderElect()
-	log.Infof("starting cluster check loop")
+func (r *AzureK8sAutopilot) Start() {
+	go func() {
+		r.leaderElect()
+		log.Infof("starting autopilot")
+
+		if r.Config.Repair.Crontab != "" {
+			r.startAutopilotRepair()
+		}
+
+		if r.Config.Update.Crontab != "" {
+			r.startAutopilotUpdate()
+		}
+	}()
+}
+
+func (r *AzureK8sAutopilot) startAutopilotRepair() {
 	// repair job
-	if r.Config.Repair.Crontab != "" {
-		r.cron.repair = cron.New(
-			cron.WithChain(
-				cron.SkipIfStillRunning(
-					cron.PrintfLogger(
-						log.StandardLogger(),
-					),
+	r.cron.repair = cron.New(
+		cron.WithChain(
+			cron.SkipIfStillRunning(
+				cron.PrintfLogger(
+					log.StandardLogger(),
 				),
 			),
-		)
+		),
+	)
 
-		_, err := r.cron.repair.AddFunc(r.Config.Repair.Crontab, func() {
-			contextLogger := log.WithField("job", "repair")
+	_, err := r.cron.repair.AddFunc(r.Config.Repair.Crontab, func() {
+		contextLogger := log.WithField("job", "repair")
 
-			// concurrency repair limit
-			if r.Config.Repair.Limit > 0 && r.nodeRepairLock.ItemCount() >= r.Config.Repair.Limit {
-				contextLogger.Infof("concurrent repair limit reached, skipping run")
-			} else {
-				start := time.Now()
-				contextLogger.Infoln("starting repair check")
-				r.repairRun(contextLogger)
-				runtime := time.Now().Sub(start)
-				r.prometheus.repair.duration.WithLabelValues().Set(runtime.Seconds())
-				contextLogger.WithField("duration", runtime.String()).Infof("finished after %s", runtime.String())
-			}
-		})
-		if err != nil {
-			log.Panic(err)
+		// concurrency repair limit
+		if r.Config.Repair.Limit > 0 && r.nodeRepairLock.ItemCount() >= r.Config.Repair.Limit {
+			contextLogger.Infof("concurrent repair limit reached, skipping run")
+		} else {
+			start := time.Now()
+			contextLogger.Infoln("starting repair check")
+			r.repairRun(contextLogger)
+			runtime := time.Now().Sub(start)
+			r.prometheus.repair.duration.WithLabelValues().Set(runtime.Seconds())
+			contextLogger.WithField("duration", runtime.String()).Infof("finished after %s", runtime.String())
 		}
-
-		r.cron.repair.Start()
+	})
+	if err != nil {
+		log.Panic(err)
 	}
 
-	// upgrade job
-	if r.Config.Update.Crontab != "" {
-		r.cron.update = cron.New(
-			cron.WithChain(
-				cron.SkipIfStillRunning(
-					cron.PrintfLogger(
-						log.StandardLogger(),
-					),
+	r.cron.repair.Start()
+}
+
+func (r *AzureK8sAutopilot) startAutopilotUpdate() {
+	r.cron.update = cron.New(
+		cron.WithChain(
+			cron.SkipIfStillRunning(
+				cron.PrintfLogger(
+					log.StandardLogger(),
 				),
 			),
-		)
+		),
+	)
 
-		_, err := r.cron.update.AddFunc(r.Config.Update.Crontab, func() {
-			contextLogger := log.WithField("job", "update")
+	_, err := r.cron.update.AddFunc(r.Config.Update.Crontab, func() {
+		contextLogger := log.WithField("job", "update")
 
-			// concurrency repair limit
-			if r.Config.Update.Limit > 0 && r.nodeUpdateLock.ItemCount() >= r.Config.Update.Limit {
-				contextLogger.Infof("concurrent update limit reached, skipping run")
-			} else {
-				contextLogger.Infoln("starting update check")
-				start := time.Now()
-				r.updateRun(contextLogger)
-				runtime := time.Now().Sub(start)
-				r.prometheus.update.duration.WithLabelValues().Set(runtime.Seconds())
-				contextLogger.WithField("duration", runtime.String()).Infof("finished after %s", runtime.String())
-			}
-		})
-		if err != nil {
-			log.Panic(err)
+		// concurrency repair limit
+		if r.Config.Update.Limit > 0 && r.nodeUpdateLock.ItemCount() >= r.Config.Update.Limit {
+			contextLogger.Infof("concurrent update limit reached, skipping run")
+		} else {
+			contextLogger.Infoln("starting update check")
+			start := time.Now()
+			r.updateRun(contextLogger)
+			runtime := time.Now().Sub(start)
+			r.prometheus.update.duration.WithLabelValues().Set(runtime.Seconds())
+			contextLogger.WithField("duration", runtime.String()).Infof("finished after %s", runtime.String())
 		}
-
-		r.cron.update.Start()
+	})
+	if err != nil {
+		log.Panic(err)
 	}
+
+	r.cron.update.Start()
 }
 
 func (r *AzureK8sAutopilot) leaderElect() {

@@ -38,7 +38,7 @@ func main() {
 		Config: opts,
 	}
 	autorepair.Init()
-	autorepair.Run()
+	autorepair.Start()
 
 	log.Infof("starting http server on %s", opts.ServerBind)
 	startHttpServer()
