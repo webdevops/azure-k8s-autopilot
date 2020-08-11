@@ -85,17 +85,10 @@ vmssLoop:
 						return
 					}
 
-					// drain node
-					if err := r.k8sDrainNode(contextLogger, node); err != nil {
-						vmssInstanceContextLogger.Errorf("node %s failed to drain: %v", node.Name, err)
-						r.updateNodeLock(vmssInstanceContextLogger, node, r.Config.Update.LockDurationError)
-						continue vmssInstanceLoop
-					}
-
 					// trigger Azure VMSS instance update
 					r.prometheus.update.count.WithLabelValues().Inc()
 					doReimage := r.Config.Update.AzureVmssAction == "update+reimage"
-					err = r.azureVmssInstanceUpdate(vmssInstanceContextLogger, *nodeInfo, doReimage)
+					err = r.azureVmssInstanceUpdate(vmssInstanceContextLogger, node, *nodeInfo, doReimage)
 
 					if err != nil {
 						r.prometheus.general.errors.WithLabelValues("azure").Inc()

@@ -80,7 +80,7 @@ func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *log.Entry, nodeInfo k8s
 	return err
 }
 
-func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, nodeInfo k8s.NodeInfo, doReimage bool) error {
+func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, node *k8s.Node, nodeInfo k8s.NodeInfo, doReimage bool) error {
 	var err error
 
 	vmssClient := compute.NewVirtualMachineScaleSetsClient(nodeInfo.Subscription)
@@ -101,6 +101,11 @@ func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, no
 	}
 
 	r.sendNotificationf("trigger automatic update of K8s node %v", nodeInfo.NodeName)
+
+	// drain node
+	if err := r.k8sDrainNode(contextLogger, node); err != nil {
+		return fmt.Errorf("node %s failed to drain: %v", node.Name, err)
+	}
 
 	// trigger update call
 	contextLogger.Info("scheduling Azure VMSS instance update")
