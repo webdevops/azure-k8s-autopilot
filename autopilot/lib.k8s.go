@@ -57,7 +57,8 @@ func (r *AzureK8sAutopilot) getK8sNodeList() (nodeList *k8s.NodeList, err error)
 	nodeList = &k8s.NodeList{}
 
 	r.nodeList.lock.Lock()
-	for _, node := range r.nodeList.list {
+	for _, val := range r.nodeList.list {
+		node := val
 		nodeList.List = append(nodeList.List, &node)
 	}
 	r.nodeList.lock.Unlock()
