@@ -347,7 +347,7 @@ func (r *AzureK8sAutopilot) syncNodeLockCache(contextLogger *log.Entry, nodeList
 			if lockDuration == nil || lockDuration.Seconds() <= 0 {
 				// remove annotation
 				contextLogger.Debugf("removing lock annotation \"%s\" from node %s", annotationName, node.Name)
-				if err := r.k8sRemoveNodeLockAnnotation(node, annotationName); err != nil {
+				if err := r.k8sNodeRemoveAnnotation(node, annotationName); err != nil {
 					contextLogger.Error(err)
 				}
 				continue

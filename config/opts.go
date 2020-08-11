@@ -47,14 +47,15 @@ type (
 
 		// upgrade settings
 		Update struct {
-			Crontab              string        `long:"update.crontab"                  env:"UPDATE_CRONTAB"                  description:"Crontab of check runs"                                 default:"@every 15m"`
-			Limit                int           `long:"update.concurrency"              env:"UPDATE_CONCURRENCY"              description:"How many VMs should be updated concurrently"           default:"1"`
-			LockDuration         time.Duration `long:"update.lock-duration"            env:"UPDATE_LOCK_DURATION"            description:"Duration how long should be waited for another update" default:"15m"`
-			LockDurationError    time.Duration `long:"update.lock-duration-error"      env:"UPDATE_LOCK_DURATION_ERROR"      description:"Duration how long should be waited for another update in case an error occurred" default:"5m"`
-			AzureVmssAction      string        `long:"update.azure.vmss.action"        env:"UPDATE_AZURE_VMSS_ACTION"        description:"Defines the action which should be tried to update the node (VMSS)" default:"update+reimage" choice:"update" choice:"update+reimage"`
-			ProvisioningState    []string      `long:"update.azure.provisioningstate"  env:"UPDATE_AZURE_PROVISIONINGSTATE"  description:"Azure VM provisioning states where update should be tried (eg. avoid repair in \"upgrading\" state; \"*\" to accept all states)"     default:"succeeded" default:"failed" env-delim:" "`
-			ProvisioningStateAll bool
-			NodeLockAnnotation   string `long:"update.lock-annotation"          env:"UPDATE_LOCK_ANNOTATION"          description:"Node annotation for update lock time"                                                                      default:"autopilot.webdevops.io/update-lock"`
+			Crontab               string        `long:"update.crontab"                  env:"UPDATE_CRONTAB"                  description:"Crontab of check runs"                                 default:"@every 15m"`
+			Limit                 int           `long:"update.concurrency"              env:"UPDATE_CONCURRENCY"              description:"How many VMs should be updated concurrently"           default:"1"`
+			LockDuration          time.Duration `long:"update.lock-duration"            env:"UPDATE_LOCK_DURATION"            description:"Duration how long should be waited for another update" default:"15m"`
+			LockDurationError     time.Duration `long:"update.lock-duration-error"      env:"UPDATE_LOCK_DURATION_ERROR"      description:"Duration how long should be waited for another update in case an error occurred" default:"5m"`
+			NodeLockAnnotation    string        `long:"update.lock-annotation"            env:"UPDATE_LOCK_ANNOTATION"           description:"Node annotation for update lock time"                                                                      default:"autopilot.webdevops.io/update-lock"`
+			NodeOngoingAnnotation string        `long:"update.ongoing-annotation"            env:"UPDATE_ONGOING_ANNOTATION"           description:"Node annotation for ongoing update lock"                                                                      default:"autopilot.webdevops.io/update-ongoing"`
+			AzureVmssAction       string        `long:"update.azure.vmss.action"        env:"UPDATE_AZURE_VMSS_ACTION"        description:"Defines the action which should be tried to update the node (VMSS)" default:"update+reimage" choice:"update" choice:"update+reimage"`
+			ProvisioningState     []string      `long:"update.azure.provisioningstate"  env:"UPDATE_AZURE_PROVISIONINGSTATE"  description:"Azure VM provisioning states where update should be tried (eg. avoid repair in \"upgrading\" state; \"*\" to accept all states)"     default:"succeeded" default:"failed" env-delim:" "`
+			ProvisioningStateAll  bool
 		}
 
 		// drain settings

@@ -64,16 +64,8 @@ func (r *AzureK8sAutopilot) getK8sNodeList() (nodeList *k8s.NodeList, err error)
 	return
 }
 
-func (r *AzureK8sAutopilot) k8sSetNodeLockAnnotation(node *k8s.Node, annotationName string, dur time.Duration) (err error) {
-	lockValue := time.Now().Add(dur).Format(time.RFC3339)
-
-	patch := []k8s.PatchStringValue{{
-		Op:    "replace",
-		Path:  fmt.Sprintf("/metadata/annotations/%s", k8s.PatchPathEsacpe(annotationName)),
-		Value: lockValue,
-	}}
-
-	patchBytes, patchErr := json.Marshal(patch)
+func (r *AzureK8sAutopilot) k8sNodeApplyPatch(node *k8s.Node, patches []k8s.JsonPatch) (err error) {
+	patchBytes, patchErr := json.Marshal(patches)
 	if patchErr != nil {
 		err = patchErr
 		return
@@ -88,25 +80,25 @@ func (r *AzureK8sAutopilot) k8sSetNodeLockAnnotation(node *k8s.Node, annotationN
 	return
 }
 
-func (r *AzureK8sAutopilot) k8sRemoveNodeLockAnnotation(node *k8s.Node, annotationName string) (err error) {
-	patch := []k8s.PatchRemove{{
+func (r *AzureK8sAutopilot) k8sNodeSetLockAnnotation(node *k8s.Node, annotationName string, dur time.Duration) (err error) {
+	lockValue := time.Now().Add(dur).Format(time.RFC3339)
+
+	patches := []k8s.JsonPatch{k8s.JsonPatchString{
+		Op:    "replace",
+		Path:  fmt.Sprintf("/metadata/annotations/%s", k8s.PatchPathEsacpe(annotationName)),
+		Value: lockValue,
+	}}
+
+	return r.k8sNodeApplyPatch(node, patches)
+}
+
+func (r *AzureK8sAutopilot) k8sNodeRemoveAnnotation(node *k8s.Node, annotationName string) (err error) {
+	patches := []k8s.JsonPatch{k8s.JsonPatchString{
 		Op:   "remove",
 		Path: fmt.Sprintf("/metadata/annotations/%s", k8s.PatchPathEsacpe(annotationName)),
 	}}
 
-	patchBytes, patchErr := json.Marshal(patch)
-	if patchErr != nil {
-		err = patchErr
-		return
-	}
-
-	_, k8sError := r.k8sClient.CoreV1().Nodes().Patch(r.ctx, node.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-	if k8sError != nil {
-		err = k8sError
-		return
-	}
-
-	return
+	return r.k8sNodeApplyPatch(node, patches)
 }
 
 func (r *AzureK8sAutopilot) k8sGetNodeLockAnnotation(node *k8s.Node, annotationName string) (dur *time.Duration, exists bool) {

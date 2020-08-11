@@ -66,7 +66,7 @@ vmssLoop:
 						continue vmssInstanceLoop
 					}
 
-					// concurrency repair limit
+					// concurrency update limit
 					if r.Config.Update.Limit > 0 && r.nodeUpdateLock.ItemCount() >= r.Config.Update.Limit {
 						vmssInstanceContextLogger.Infof("detected updateable node %s, skipping due to concurrent update limit", node.Name)
 						continue vmssInstanceLoop
@@ -113,7 +113,7 @@ vmssLoop:
 
 func (r *AzureK8sAutopilot) updateNodeLock(contextLogger *log.Entry, node *k8s.Node, dur time.Duration) {
 	r.nodeUpdateLock.Add(node.Name, true, dur) //nolint:golint,errcheck
-	if k8sErr := r.k8sSetNodeLockAnnotation(node, r.Config.Update.NodeLockAnnotation, dur); k8sErr != nil {
+	if k8sErr := r.k8sNodeSetLockAnnotation(node, r.Config.Update.NodeLockAnnotation, dur); k8sErr != nil {
 		contextLogger.Error(k8sErr)
 	}
 }
