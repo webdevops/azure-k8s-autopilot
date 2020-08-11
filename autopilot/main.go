@@ -37,6 +37,8 @@ type (
 			update *cron.Cron
 		}
 
+		wg sync.WaitGroup
+
 		prometheus struct {
 			general struct {
 				errors *prometheus.CounterVec
@@ -208,6 +210,18 @@ func (r *AzureK8sAutopilot) Start() {
 	}()
 }
 
+func (r *AzureK8sAutopilot) Stop() {
+	if r.cron.repair != nil {
+		r.cron.repair.Stop()
+	}
+
+	if r.cron.update != nil {
+		r.cron.update.Stop()
+	}
+
+	r.wg.Wait()
+}
+
 func (r *AzureK8sAutopilot) startAutopilotRepair() {
 	// repair job
 	r.cron.repair = cron.New(
@@ -221,6 +235,9 @@ func (r *AzureK8sAutopilot) startAutopilotRepair() {
 	)
 
 	_, err := r.cron.repair.AddFunc(r.Config.Repair.Crontab, func() {
+		r.wg.Add(1)
+		defer r.wg.Done()
+
 		contextLogger := log.WithField("job", "repair")
 
 		// concurrency repair limit
@@ -254,6 +271,9 @@ func (r *AzureK8sAutopilot) startAutopilotUpdate() {
 	)
 
 	_, err := r.cron.update.AddFunc(r.Config.Update.Crontab, func() {
+		r.wg.Add(1)
+		defer r.wg.Done()
+
 		contextLogger := log.WithField("job", "update")
 
 		// concurrency repair limit

@@ -9,9 +9,11 @@ import (
 	"github.com/webdevopos/azure-k8s-autopilot/config"
 	"net/http"
 	"os"
+	"os/signal"
 	"path"
 	"runtime"
 	"strings"
+	"syscall"
 )
 
 const (
@@ -34,14 +36,21 @@ func main() {
 	log.Infof("starting Azure K8S cluster autopilot v%s (%s; %s; by %v)", gitTag, gitCommit, runtime.Version(), Author)
 	log.Info(string(opts.GetJson()))
 
-	autorepair := autopilot.AzureK8sAutopilot{
+	pilot := autopilot.AzureK8sAutopilot{
 		Config: opts,
 	}
-	autorepair.Init()
-	autorepair.Start()
+	pilot.Init()
+	pilot.Start()
 
 	log.Infof("starting http server on %s", opts.ServerBind)
 	startHttpServer()
+
+	termChan := make(chan os.Signal)
+	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM)
+	<-termChan
+	log.Info("shutdown signal received, trying to stop")
+	pilot.Stop()
+	log.Info("finished, terminating now")
 }
 
 // init argparser and parse/validate arguments
@@ -103,5 +112,7 @@ func startHttpServer() {
 	})
 
 	http.Handle("/metrics", promhttp.Handler())
-	log.Fatal(http.ListenAndServe(opts.ServerBind, nil))
+	go func() {
+		log.Fatal(http.ListenAndServe(opts.ServerBind, nil))
+	}()
 }
