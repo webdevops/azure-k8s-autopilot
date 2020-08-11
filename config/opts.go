@@ -62,7 +62,7 @@ type (
 		Drain OptsDrain
 
 		// notification
-		Notification []string `long:"notification" env:"NOTIFICATION" description:"Shoutrrr url for notifications (https://containrrr.github.io/shoutrrr/)" env-delim:" "`
+		Notification []string `long:"notification" env:"NOTIFICATION" description:"Shoutrrr url for notifications (https://containrrr.github.io/shoutrrr/)" env-delim:" " json:"-"`
 
 		// server settings
 		ServerBind string `long:"bind" env:"SERVER_BIND"  description:"Server address"  default:":8080"`
