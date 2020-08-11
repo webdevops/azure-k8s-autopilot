@@ -14,13 +14,14 @@ import (
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
 	"golang.org/x/net/context"
 	"k8s.io/api/policy/v1beta1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -59,6 +60,11 @@ type (
 		cache          *cache.Cache
 		nodeRepairLock *cache.Cache
 		nodeUpdateLock *cache.Cache
+
+		nodeList struct {
+			list map[string]k8s.Node
+			lock sync.Mutex
+		}
 	}
 )
 
@@ -183,6 +189,15 @@ func (r *AzureK8sAutopilot) Start() {
 		r.leaderElect()
 		log.Infof("starting autopilot")
 
+		go func() {
+			for {
+				log.Info("(re)starting node watch")
+				if err := r.startNodeWatch(); err != nil {
+					log.Errorf("node watcher stopped: %v", err)
+				}
+			}
+		}()
+
 		if r.Config.Repair.Crontab != "" {
 			r.startAutopilotRepair()
 		}
@@ -294,7 +309,7 @@ func (r *AzureK8sAutopilot) checkSelfEviction(node *k8s.Node) bool {
 		}
 
 		eviction := v1beta1.Eviction{
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      *r.Config.Instance.Pod,
 				Namespace: *r.Config.Instance.Namespace,
 			},

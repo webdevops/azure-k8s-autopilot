@@ -19,7 +19,7 @@ func (r *AzureK8sAutopilot) repairRun(contextLogger *log.Entry) {
 
 	r.nodeRepairLock.DeleteExpired()
 
-	contextLogger.Debugf("found %v nodes in cluster (%v in locked state)", len(nodeList.Items), r.nodeRepairLock.ItemCount())
+	contextLogger.Debugf("found %v nodes in cluster (%v in locked state)", len(nodeList.GetNodes()), r.nodeRepairLock.ItemCount())
 
 nodeLoop:
 	for _, node := range nodeList.GetNodes() {

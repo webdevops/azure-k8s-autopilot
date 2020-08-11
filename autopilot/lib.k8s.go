@@ -1,48 +1,66 @@
 package autopilot
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"time"
 )
 
+func (r *AzureK8sAutopilot) startNodeWatch() error {
+	// init list
+	r.nodeList.lock.Lock()
+	r.nodeList.list = map[string]k8s.Node{}
+	r.nodeList.lock.Unlock()
+
+	timeout := int64(60 * 60 * 1)
+	nodeWatcher, err := r.k8sClient.CoreV1().Nodes().Watch(r.ctx, metav1.ListOptions{TimeoutSeconds: &timeout, Watch: true})
+	if err != nil {
+		log.Panic(err)
+	}
+	defer nodeWatcher.Stop()
+
+	for res := range nodeWatcher.ResultChan() {
+		switch res.Type {
+		case watch.Added:
+			r.nodeList.lock.Lock()
+			if node, ok := res.Object.(*corev1.Node); ok {
+				r.nodeList.list[node.Name] = k8s.Node{Node: node}
+			}
+			r.nodeList.lock.Unlock()
+		case watch.Deleted:
+			r.nodeList.lock.Lock()
+			if node, ok := res.Object.(*corev1.Node); ok {
+				delete(r.nodeList.list, node.Name)
+			}
+			r.nodeList.lock.Unlock()
+		case watch.Modified:
+			r.nodeList.lock.Lock()
+			if node, ok := res.Object.(*corev1.Node); ok {
+				r.nodeList.list[node.Name] = k8s.Node{Node: node}
+			}
+			r.nodeList.lock.Unlock()
+		case watch.Error:
+			return fmt.Errorf("unable to understand watch event %v", res.Type)
+		}
+	}
+
+	return fmt.Errorf("terminated")
+}
+
 func (r *AzureK8sAutopilot) getK8sNodeList() (nodeList *k8s.NodeList, err error) {
-	ctx := context.Background()
+	nodeList = &k8s.NodeList{}
 
-	opts := metav1.ListOptions{}
-	opts.LabelSelector = r.Config.K8S.NodeLabelSelector
-	list, k8sError := r.k8sClient.CoreV1().Nodes().List(ctx, opts)
-	if k8sError != nil {
-		err = k8sError
-		return
+	r.nodeList.lock.Lock()
+	for _, node := range r.nodeList.list {
+		nodeList.List = append(nodeList.List, &node)
 	}
-
-	nodeList = &k8s.NodeList{NodeList: list}
-
-	// fetch all nodes
-	for {
-		if list.RemainingItemCount == nil || *list.RemainingItemCount == 0 {
-			break
-		}
-
-		opts.Continue = list.Continue
-
-		remainList, k8sError := r.k8sClient.CoreV1().Nodes().List(ctx, opts)
-		if k8sError != nil {
-			err = k8sError
-			return
-		}
-
-		list.Continue = remainList.Continue
-		list.RemainingItemCount = remainList.RemainingItemCount
-		nodeList.Items = append(nodeList.Items, remainList.Items...)
-	}
-
+	r.nodeList.lock.Unlock()
 	return
 }
 

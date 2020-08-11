@@ -2,21 +2,16 @@ package k8s
 
 import (
 	"fmt"
-	v1 "k8s.io/api/core/v1"
 )
 
 type (
 	NodeList struct {
-		*v1.NodeList
+		List []*Node
 	}
 )
 
 func (n *NodeList) GetNodes() (list []*Node) {
-	for _, value := range n.Items {
-		node := value
-		list = append(list, &Node{Node: &node})
-	}
-	return
+	return n.List
 }
 
 func (n *NodeList) GetAzureVmssList() (vmssList map[string]*NodeInfo, err error) {
@@ -47,9 +42,9 @@ func (n *NodeList) GetAzureVmssList() (vmssList map[string]*NodeInfo, err error)
 }
 
 func (n *NodeList) FindNodeByProviderId(providerId string) (ret *Node) {
-	for _, node := range n.Items {
+	for _, node := range n.List {
 		if node.Spec.ProviderID == providerId {
-			ret = &Node{&node}
+			ret = node
 			break
 		}
 	}
