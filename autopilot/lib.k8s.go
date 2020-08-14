@@ -46,7 +46,9 @@ func (r *AzureK8sAutopilot) startNodeWatch() error {
 			}
 			r.nodeList.lock.Unlock()
 		case watch.Error:
-			return fmt.Errorf("unable to understand watch event %v", res.Type)
+			log.Errorf("go watch error event %v", res.Object)
+		default:
+			log.Errorf("unable to understand watch event %v", res.Object)
 		}
 	}
 
