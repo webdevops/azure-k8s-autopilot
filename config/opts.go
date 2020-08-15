@@ -28,7 +28,12 @@ type (
 		// k8s
 		K8S struct {
 			NodeLabelSelector string `long:"kube.node.labelselector"     env:"KUBE_NODE_LABELSELECTOR"     description:"Node Label selector which nodes should be checked"        default:""`
-			LockName          string `long:"kube.lockname"               env:"KUBE_LOCKANAME"              description:"Name of kubernetes lock"                                  default:"azure-k8s-autopilot-leader"`
+		}
+
+		// lease
+		Lease struct {
+			Enabled       bool   `long:"lease.enable"  env:"LEASE_ENABLE"  description:"Enable lease (leader election; enabled by default in docker images)"`
+			Name          string `long:"lease.name"    env:"LEASE_NAME"    description:"Name of lease lock"               default:"azure-k8s-autopilot-leader"`
 		}
 
 		// check settings

@@ -296,21 +296,23 @@ func (r *AzureK8sAutopilot) startAutopilotUpdate() {
 }
 
 func (r *AzureK8sAutopilot) leaderElect() {
-	log.Info("trying to become leader")
-	if r.Config.Instance.Pod != nil && os.Getenv("POD_NAME") == "" {
-		err := os.Setenv("POD_NAME", *r.Config.Instance.Pod)
-		if err != nil {
-			log.Panic(err)
+	if r.Config.Lease.Enabled {
+		log.Info("trying to become leader")
+		if r.Config.Instance.Pod != nil && os.Getenv("POD_NAME") == "" {
+			err := os.Setenv("POD_NAME", *r.Config.Instance.Pod)
+			if err != nil {
+				log.Panic(err)
+			}
 		}
-	}
 
-	time.Sleep(15 * time.Second)
-	err := leader.Become(r.ctx, r.Config.K8S.LockName)
-	if err != nil {
-		log.Error(err, "Failed to retry for leader lock")
-		os.Exit(1)
+		time.Sleep(15 * time.Second)
+		err := leader.Become(r.ctx, r.Config.Lease.Name)
+		if err != nil {
+			log.Error(err, "Failed to retry for leader lock")
+			os.Exit(1)
+		}
+		log.Info("aquired leader lock, continue")
 	}
-	log.Info("aquired leader lock, continue")
 }
 
 func (r *AzureK8sAutopilot) checkSelfEviction(node *k8s.Node) bool {

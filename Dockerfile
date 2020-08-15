@@ -25,7 +25,8 @@ RUN ./azure-k8s-autopilot --help
 FROM gcr.io/distroless/static
 
 ENV LOG_JSON=1\
-    DRAIN_KUBECTL=/kubectl
+    DRAIN_KUBECTL=/kubectl \
+    LEASE_ENABLE=1
 
 COPY --from=build /kubectl /
 COPY --from=build /go/src/github.com/webdevops/azure-k8s-autopilot/azure-k8s-autopilot /
