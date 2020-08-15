@@ -46,6 +46,9 @@ rules:
     resources: ["configmaps"]
     resourceNames: ["azure-k8s-autopilot-leader"]
     verbs: ["get", "watch", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs:     ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
