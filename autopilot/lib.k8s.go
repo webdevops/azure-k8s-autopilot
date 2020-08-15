@@ -19,7 +19,13 @@ func (r *AzureK8sAutopilot) startNodeWatch() error {
 	r.nodeList.lock.Unlock()
 
 	timeout := int64(60 * 60 * 1)
-	nodeWatcher, err := r.k8sClient.CoreV1().Nodes().Watch(r.ctx, metav1.ListOptions{TimeoutSeconds: &timeout, Watch: true})
+
+	watchOpts := metav1.ListOptions{
+		LabelSelector: r.Config.K8S.NodeLabelSelector,
+		TimeoutSeconds: &timeout, 
+		Watch: true,
+	}
+	nodeWatcher, err := r.k8sClient.CoreV1().Nodes().Watch(r.ctx, watchOpts)
 	if err != nil {
 		log.Panic(err)
 	}
