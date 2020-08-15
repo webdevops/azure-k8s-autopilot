@@ -32,8 +32,8 @@ type (
 
 		// lease
 		Lease struct {
-			Enabled       bool   `long:"lease.enable"  env:"LEASE_ENABLE"  description:"Enable lease (leader election; enabled by default in docker images)"`
-			Name          string `long:"lease.name"    env:"LEASE_NAME"    description:"Name of lease lock"               default:"azure-k8s-autopilot-leader"`
+			Enabled bool   `long:"lease.enable"  env:"LEASE_ENABLE"  description:"Enable lease (leader election; enabled by default in docker images)"`
+			Name    string `long:"lease.name"    env:"LEASE_NAME"    description:"Name of lease lock"               default:"azure-k8s-autopilot-leader"`
 		}
 
 		// check settings

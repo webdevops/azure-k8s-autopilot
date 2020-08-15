@@ -21,9 +21,9 @@ func (r *AzureK8sAutopilot) startNodeWatch() error {
 	timeout := int64(60 * 60 * 1)
 
 	watchOpts := metav1.ListOptions{
-		LabelSelector: r.Config.K8S.NodeLabelSelector,
-		TimeoutSeconds: &timeout, 
-		Watch: true,
+		LabelSelector:  r.Config.K8S.NodeLabelSelector,
+		TimeoutSeconds: &timeout,
+		Watch:          true,
 	}
 	nodeWatcher, err := r.k8sClient.CoreV1().Nodes().Watch(r.ctx, watchOpts)
 	if err != nil {
