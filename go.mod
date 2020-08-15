@@ -1,6 +1,6 @@
 module github.com/webdevopos/azure-k8s-autopilot
 
-go 1.14
+go 1.15
 
 require (
 	cloud.google.com/go v0.49.0 // indirect
