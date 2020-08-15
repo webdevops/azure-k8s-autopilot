@@ -11,7 +11,8 @@ WORKDIR /go/src/github.com/webdevops/azure-k8s-autopilot
 # Get deps (cached)
 COPY ./go.mod /go/src/github.com/webdevops/azure-k8s-autopilot
 COPY ./go.sum /go/src/github.com/webdevops/azure-k8s-autopilot
-RUN go mod download
+COPY ./Makefile /go/src/github.com/webdevops/azure-k8s-autopilot
+RUN make dependencies
 
 # Compile
 COPY ./ /go/src/github.com/webdevops/azure-k8s-autopilot
