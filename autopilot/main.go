@@ -249,7 +249,7 @@ func (r *AzureK8sAutopilot) startAutopilotRepair() {
 			r.repairRun(contextLogger)
 			runtime := time.Now().Sub(start)
 			r.prometheus.repair.duration.WithLabelValues().Set(runtime.Seconds())
-			contextLogger.WithField("duration", runtime.String()).Infof("finished after %s", runtime.String())
+			contextLogger.WithField("duration", runtime.Seconds()).Infof("finished after %s", runtime.String())
 		}
 	})
 	if err != nil {
@@ -285,7 +285,7 @@ func (r *AzureK8sAutopilot) startAutopilotUpdate() {
 			r.updateRun(contextLogger)
 			runtime := time.Now().Sub(start)
 			r.prometheus.update.duration.WithLabelValues().Set(runtime.Seconds())
-			contextLogger.WithField("duration", runtime.String()).Infof("finished after %s", runtime.String())
+			contextLogger.WithField("duration", runtime.Seconds()).Infof("finished after %s", runtime.String())
 		}
 	})
 	if err != nil {
