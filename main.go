@@ -33,7 +33,7 @@ var opts = config.Opts{}
 func main() {
 	initArgparser()
 
-	log.Infof("starting Azure K8S cluster autopilot v%s (%s; %s; by %v)", gitTag, gitCommit, runtime.Version(), Author)
+	log.Infof("starting azure-k8s-autopilot v%s (%s; %s; by %v)", gitTag, gitCommit, runtime.Version(), Author)
 	log.Info(string(opts.GetJson()))
 
 	pilot := autopilot.AzureK8sAutopilot{
