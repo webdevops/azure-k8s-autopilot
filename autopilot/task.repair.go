@@ -7,31 +7,26 @@ import (
 )
 
 func (r *AzureK8sAutopilot) repairRun(contextLogger *log.Entry) {
-	nodeList, err := r.getK8sNodeList()
+	nodeList, err := r.nodeList.NodeList()
 	if err != nil {
 		contextLogger.Errorf("unable to fetch K8s Node list: %v", err.Error())
 		return
 	}
 
-	r.syncNodeLockCache(contextLogger, nodeList, r.Config.Repair.NodeLockAnnotation, r.nodeRepairLock)
+	r.syncNodeLockCache(contextLogger, nodeList, r.Config.Repair.NodeLockAnnotation, r.repair.nodeLock)
 
 	repairThresholdSeconds := r.Config.Repair.NotReadyThreshold.Seconds()
 
-	r.nodeRepairLock.DeleteExpired()
+	r.repair.nodeLock.DeleteExpired()
 
-	contextLogger.Debugf("found %v nodes in cluster (%v in locked state)", len(nodeList.GetNodes()), r.nodeRepairLock.ItemCount())
+	contextLogger.Debugf("found %v nodes in cluster (%v in locked state)", len(nodeList), r.repair.nodeLock.ItemCount())
 
 nodeLoop:
-	for _, node := range nodeList.GetNodes() {
+	for _, node := range nodeList {
 		nodeContextLogger := contextLogger.WithField("node", node.Name)
 
 		nodeContextLogger.Debug("checking node")
 		r.prometheus.repair.nodeStatus.WithLabelValues(node.Name).Set(0)
-
-		if !node.IsAzureProvider() {
-			// skip non Azure nodes
-			continue nodeLoop
-		}
 
 		// check if node is ready/healthy
 		if nodeIsHealthy, nodeLastHeartbeat := node.GetHealthStatus(); !nodeIsHealthy {
@@ -56,13 +51,13 @@ nodeLoop:
 			var err error
 
 			// redeploy timeout lock
-			if _, expiry, exists := r.nodeRepairLock.GetWithExpiration(node.Name); exists == true {
+			if _, expiry, exists := r.repair.nodeLock.GetWithExpiration(node.Name); exists == true {
 				nodeContextLogger.Infof("detected unhealthy node %s (last heartbeat: %s), locked (relased in %v)", node.Name, nodeLastHeartbeatText, expiry.Sub(time.Now()))
 				continue nodeLoop
 			}
 
 			// concurrency repair limit
-			if r.Config.Repair.Limit > 0 && r.nodeRepairLock.ItemCount() >= r.Config.Repair.Limit {
+			if r.Config.Repair.Limit > 0 && r.repair.nodeLock.ItemCount() >= r.Config.Repair.Limit {
 				nodeContextLogger.Infof("detected unhealthy node %s (last heartbeat: %s), skipping due to concurrent repair limit", node.Name, nodeLastHeartbeatText)
 				continue nodeLoop
 			}
@@ -78,7 +73,7 @@ nodeLoop:
 
 			if r.DryRun {
 				nodeContextLogger.Infof("node %s repair skipped, dry run", node.Name)
-				r.nodeRepairLock.Add(node.Name, true, r.Config.Repair.LockDuration) //nolint:golint,errcheck
+				r.repair.nodeLock.Add(node.Name, true, r.Config.Repair.LockDuration) //nolint:golint,errcheck
 				continue nodeLoop
 			}
 
@@ -101,14 +96,14 @@ nodeLoop:
 			if err != nil {
 				r.prometheus.general.errors.WithLabelValues("azure").Inc()
 				nodeContextLogger.Errorf("node %s repair failed: %s", node.Name, err.Error())
-				r.nodeRepairLock.Add(node.Name, true, r.Config.Repair.LockDurationError) //nolint:golint,errcheck
+				r.repair.nodeLock.Add(node.Name, true, r.Config.Repair.LockDurationError) //nolint:golint,errcheck
 				if k8sErr := r.k8sNodeSetLockAnnotation(node, r.Config.Repair.NodeLockAnnotation, r.Config.Repair.LockDurationError); k8sErr != nil {
 					nodeContextLogger.Error(k8sErr)
 				}
 				continue nodeLoop
 			} else {
 				// lock vm for next redeploy, can take up to 15 mins
-				r.nodeRepairLock.Add(node.Name, true, r.Config.Repair.LockDuration) //nolint:golint,errcheck
+				r.repair.nodeLock.Add(node.Name, true, r.Config.Repair.LockDuration) //nolint:golint,errcheck
 				if k8sErr := r.k8sNodeSetLockAnnotation(node, r.Config.Repair.NodeLockAnnotation, r.Config.Repair.LockDuration); k8sErr != nil {
 					nodeContextLogger.Error(k8sErr)
 				}
@@ -117,7 +112,7 @@ nodeLoop:
 		} else {
 			// node IS healthy
 			nodeContextLogger.Debugf("detected healthy node %s", node.Name)
-			r.nodeRepairLock.Delete(node.Name)
+			r.repair.nodeLock.Delete(node.Name)
 		}
 	}
 }

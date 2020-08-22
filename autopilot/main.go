@@ -41,7 +41,9 @@ type (
 
 		prometheus struct {
 			general struct {
-				errors *prometheus.CounterVec
+				errors         *prometheus.CounterVec
+				candidateNodes *prometheus.GaugeVec
+				failedNodes    *prometheus.GaugeVec
 			}
 
 			repair struct {
@@ -59,13 +61,16 @@ type (
 		azureAuthorizer autorest.Authorizer
 		k8sClient       *kubernetes.Clientset
 
-		cache          *cache.Cache
-		nodeRepairLock *cache.Cache
-		nodeUpdateLock *cache.Cache
+		cache *cache.Cache
 
-		nodeList struct {
-			list map[string]k8s.Node
-			lock sync.Mutex
+		nodeList *k8s.NodeList
+
+		repair struct {
+			nodeLock *cache.Cache
+		}
+
+		update struct {
+			nodeLock *cache.Cache
 		}
 	}
 )
@@ -77,9 +82,15 @@ func (r *AzureK8sAutopilot) Init() {
 	r.initMetricsRepair()
 	r.initMetricsUpdate()
 	r.cache = cache.New(1*time.Minute, 1*time.Minute)
-	r.nodeRepairLock = cache.New(15*time.Minute, 1*time.Minute)
-	r.nodeUpdateLock = cache.New(15*time.Minute, 1*time.Minute)
+	r.repair.nodeLock = cache.New(15*time.Minute, 1*time.Minute)
+	r.update.nodeLock = cache.New(15*time.Minute, 1*time.Minute)
 	r.ctx = context.Background()
+
+	r.nodeList = &k8s.NodeList{
+		NodeLabelSelector: r.Config.K8S.NodeLabelSelector,
+		AzureAuthorizer:   r.azureAuthorizer,
+		Client:            r.k8sClient,
+	}
 
 	r.Config.Repair.ProvisioningStateAll = false
 	for key, val := range r.Config.Repair.ProvisioningState {
@@ -135,6 +146,25 @@ func (r *AzureK8sAutopilot) initMetricsGeneral() {
 		[]string{"scope"},
 	)
 	prometheus.MustRegister(r.prometheus.general.errors)
+
+	r.prometheus.general.failedNodes = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "autopilot_failed_nodes",
+			Help: "azure_k8s_autopilot count of nodes which are failed",
+		},
+		[]string{"type"},
+	)
+	prometheus.MustRegister(r.prometheus.general.failedNodes)
+
+	r.prometheus.general.candidateNodes = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "autopilot_candidate_nodes",
+			Help: "azure_k8s_autopilot count of nodes which are considred as candidates",
+		},
+		[]string{"type"},
+	)
+
+	prometheus.MustRegister(r.prometheus.general.candidateNodes)
 }
 
 func (r *AzureK8sAutopilot) initMetricsRepair() {
@@ -191,14 +221,7 @@ func (r *AzureK8sAutopilot) Start() {
 		r.leaderElect()
 		log.Infof("starting autopilot")
 
-		go func() {
-			for {
-				log.Info("(re)starting node watch")
-				if err := r.startNodeWatch(); err != nil {
-					log.Errorf("node watcher stopped: %v", err)
-				}
-			}
-		}()
+		r.nodeList.Start()
 
 		if r.Config.Repair.Crontab != "" {
 			r.startAutopilotRepair()
@@ -220,6 +243,7 @@ func (r *AzureK8sAutopilot) Stop() {
 	}
 
 	r.wg.Wait()
+	r.nodeList.Stop()
 }
 
 func (r *AzureK8sAutopilot) startAutopilotRepair() {
@@ -241,7 +265,7 @@ func (r *AzureK8sAutopilot) startAutopilotRepair() {
 		contextLogger := log.WithField("job", "repair")
 
 		// concurrency repair limit
-		if r.Config.Repair.Limit > 0 && r.nodeRepairLock.ItemCount() >= r.Config.Repair.Limit {
+		if r.Config.Repair.Limit > 0 && r.repair.nodeLock.ItemCount() >= r.Config.Repair.Limit {
 			contextLogger.Infof("concurrent repair limit reached, skipping run")
 		} else {
 			start := time.Now()
@@ -277,7 +301,7 @@ func (r *AzureK8sAutopilot) startAutopilotUpdate() {
 		contextLogger := log.WithField("job", "update")
 
 		// concurrency repair limit
-		if r.Config.Update.Limit > 0 && r.nodeUpdateLock.ItemCount() >= r.Config.Update.Limit {
+		if r.Config.Update.Limit > 0 && r.update.nodeLock.ItemCount() >= r.Config.Update.Limit {
 			contextLogger.Infof("concurrent update limit reached, skipping run")
 		} else {
 			contextLogger.Infoln("starting update check")
@@ -358,12 +382,12 @@ func (r *AzureK8sAutopilot) sendNotification(message string) {
 	}
 }
 
-func (r *AzureK8sAutopilot) syncNodeLockCache(contextLogger *log.Entry, nodeList *k8s.NodeList, annotationName string, cacheLock *cache.Cache) {
+func (r *AzureK8sAutopilot) syncNodeLockCache(contextLogger *log.Entry, nodeList []*k8s.Node, annotationName string, cacheLock *cache.Cache) {
 	// lock cache clear
 	contextLogger.Debugf("sync node lock cache for annotation %s", annotationName)
 	cacheLock.Flush()
 
-	for _, node := range nodeList.GetNodes() {
+	for _, node := range nodeList {
 		if lockDuration, exists := r.k8sGetNodeLockAnnotation(node, annotationName); exists {
 			// check if annotation is valid and if node status is ok
 			if lockDuration == nil || lockDuration.Seconds() <= 0 {
@@ -382,11 +406,11 @@ func (r *AzureK8sAutopilot) syncNodeLockCache(contextLogger *log.Entry, nodeList
 	}
 }
 
-func (r *AzureK8sAutopilot) autoUncordonExpiredNodes(contextLogger *log.Entry, nodeList *k8s.NodeList, annotationName string) {
+func (r *AzureK8sAutopilot) autoUncordonExpiredNodes(contextLogger *log.Entry, nodeList []*k8s.Node, annotationName string) {
 	// lock cache clear
 	contextLogger.Debugf("checking expired but still cordoned nodes for annotation \"%s\"", annotationName)
 
-	for _, node := range nodeList.GetNodes() {
+	for _, node := range nodeList {
 		if lockDuration, exists := r.k8sGetNodeLockAnnotation(node, annotationName); exists {
 			// check if annotation is valid and if node status is ok
 			if lockDuration == nil || lockDuration.Seconds() <= 0 {

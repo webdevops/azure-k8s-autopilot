@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
 	v1 "k8s.io/api/core/v1"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 type (
 	Node struct {
 		*v1.Node
+		AzureVmss *compute.VirtualMachineScaleSetVM
 	}
 )
 
