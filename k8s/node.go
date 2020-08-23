@@ -55,7 +55,6 @@ func (n *Node) AnnotationSet(name, value string) (err error) {
 	return n.PatchSetApply(patches)
 }
 
-
 func (n *Node) AnnotationLockSet(name string, dur time.Duration) error {
 	return n.AnnotationSet(name, time.Now().Add(dur).Format(time.RFC3339))
 }

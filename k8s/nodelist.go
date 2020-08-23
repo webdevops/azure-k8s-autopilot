@@ -90,25 +90,28 @@ func (n *NodeList) startNodeWatch() error {
 
 	for res := range nodeWatcher.ResultChan() {
 		switch res.Type {
+		// node added
 		case watch.Added:
 			n.lock.Lock()
 			if node, ok := res.Object.(*corev1.Node); ok {
-				node := &Node{Node: node}
+				node := &Node{Node: node, Client: n.Client}
 				if node.IsAzureProvider() {
 					n.list[node.Name] = node
 				}
 			}
 			n.lock.Unlock()
+		// node deleted
 		case watch.Deleted:
 			n.lock.Lock()
 			if node, ok := res.Object.(*corev1.Node); ok {
 				delete(n.list, node.Name)
 			}
 			n.lock.Unlock()
+		// node modified
 		case watch.Modified:
 			n.lock.Lock()
 			if node, ok := res.Object.(*corev1.Node); ok {
-				node := &Node{Node: node}
+				node := &Node{Node: node, Client: n.Client}
 				if node.IsAzureProvider() {
 					n.list[node.Name] = node
 				}
@@ -122,7 +125,7 @@ func (n *NodeList) startNodeWatch() error {
 	return fmt.Errorf("terminated")
 }
 
-func (n *NodeList) NodeList() (list []*Node, err error) {
+func (n *NodeList) NodeList() (list []*Node) {
 	list = []*Node{}
 
 	for _, v := range n.list {
@@ -133,10 +136,7 @@ func (n *NodeList) NodeList() (list []*Node, err error) {
 }
 
 func (n *NodeList) NodeListWithAzure() (list []*Node, err error) {
-	list, err = n.NodeList()
-	if err != nil {
-		return
-	}
+	list = n.NodeList()
 
 	if err := n.refreshAzureCache(); err != nil {
 		return nil, err

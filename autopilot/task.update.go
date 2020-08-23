@@ -9,20 +9,11 @@ import (
 )
 
 func (r *AzureK8sAutopilot) updateRun(contextLogger *log.Entry) {
-	// concurrency update limit
-	if r.Config.Update.Limit > 0 && r.update.nodeLock.ItemCount() >= r.Config.Update.Limit {
-		contextLogger.Infof("reached concurrent update lock, skipping node updates")
-		return
-	}
-
 	nodeList, err := r.nodeList.NodeListWithAzure()
 	if err != nil {
 		contextLogger.Errorf("unable to fetch K8s Node list: %v", err.Error())
 		return
 	}
-
-	r.autoUncordonExpiredNodes(contextLogger, nodeList, r.Config.Update.NodeLockAnnotation)
-	r.syncNodeLockCache(contextLogger, nodeList, r.Config.Update.NodeLockAnnotation, r.update.nodeLock)
 
 	// find update candidates
 	candidateList := r.updateCollectCandiates(contextLogger, nodeList)
@@ -61,9 +52,11 @@ func (r *AzureK8sAutopilot) updateRun(contextLogger *log.Entry) {
 				"subscription":  nodeInfo.Subscription,
 				"resourceGroup": nodeInfo.ResourceGroup,
 				"vmss":          nodeInfo.VMScaleSetName,
+				"vmssInstance":  nodeInfo.VMInstanceID,
+				"node":          node.Name,
 			})
 
-			contextLogger.Infof("starting update of node %v/%v", nodeInfo.VMScaleSetName, nodeInfo.ProviderId)
+			contextLogger.Infof("starting update of node %v", node.Name)
 			if err := r.updateNode(nodeLogger, node, nodeInfo); err != nil {
 				// update failed
 				contextLogger.Error(err)
@@ -96,7 +89,7 @@ func (r *AzureK8sAutopilot) updateCollectCandiates(contextLogger *log.Entry, nod
 		node := v
 		if node.AzureVmss != nil {
 			if node.AzureVmss.LatestModelApplied != nil && !*node.AzureVmss.LatestModelApplied {
-				contextLogger.WithField("node", node.Name).Infof("found updateable node")
+				contextLogger.WithField("node", node.Name).Infof("found updatable node")
 				candidateList = append(candidateList, node)
 			}
 		}

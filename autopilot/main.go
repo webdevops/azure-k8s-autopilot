@@ -264,6 +264,9 @@ func (r *AzureK8sAutopilot) startAutopilotRepair() {
 
 		contextLogger := log.WithField("job", "repair")
 
+		// update node lock cache
+		r.syncNodeLockCache(contextLogger, r.nodeList.NodeList(), r.Config.Repair.NodeLockAnnotation, r.repair.nodeLock)
+
 		// concurrency repair limit
 		if r.Config.Repair.Limit > 0 && r.repair.nodeLock.ItemCount() >= r.Config.Repair.Limit {
 			contextLogger.Infof("concurrent repair limit reached, skipping run")
@@ -299,6 +302,12 @@ func (r *AzureK8sAutopilot) startAutopilotUpdate() {
 		defer r.wg.Done()
 
 		contextLogger := log.WithField("job", "update")
+
+		// automatic remove cordon state on nodes
+		r.autoUncordonExpiredNodes(contextLogger, r.nodeList.NodeList(), r.Config.Update.NodeLockAnnotation)
+
+		// update node lock cache
+		r.syncNodeLockCache(contextLogger, r.nodeList.NodeList(), r.Config.Update.NodeLockAnnotation, r.update.nodeLock)
 
 		// concurrency repair limit
 		if r.Config.Update.Limit > 0 && r.update.nodeLock.ItemCount() >= r.Config.Update.Limit {
@@ -405,8 +414,12 @@ func (r *AzureK8sAutopilot) syncNodeLockCache(contextLogger *log.Entry, nodeList
 			// add to lock cache
 			contextLogger.Debugf("found existing lock \"%s\" for node %s, duration: %s", annotationName, node.Name, lockDuration.String())
 			cacheLock.Add(node.Name, true, *lockDuration) //nolint:golint,errcheck
+		} else {
+			cacheLock.Delete(node.Name)
 		}
 	}
+
+	cacheLock.DeleteExpired()
 }
 
 func (r *AzureK8sAutopilot) autoUncordonExpiredNodes(contextLogger *log.Entry, nodeList []*k8s.Node, annotationName string) {
