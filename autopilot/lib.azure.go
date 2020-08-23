@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// trigger VMSS repair task
 func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *log.Entry, nodeInfo k8s.NodeInfo) error {
 	var err error
 	vmssInstanceIds := compute.VirtualMachineScaleSetVMInstanceIDs{
@@ -80,6 +81,7 @@ func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *log.Entry, nodeInfo k8s
 	return err
 }
 
+// trigger VMSS instance update
 func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, node *k8s.Node, nodeInfo k8s.NodeInfo, doReimage bool) error {
 	var err error
 
@@ -140,6 +142,7 @@ func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, no
 	return nil
 }
 
+// check current VM provision state if change is allowed
 func (r *AzureK8sAutopilot) checkVmProvisionState(provisioningState *string) (err error) {
 	if r.Config.Repair.ProvisioningStateAll || provisioningState == nil {
 		return

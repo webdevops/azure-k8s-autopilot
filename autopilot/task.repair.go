@@ -97,14 +97,14 @@ nodeLoop:
 				r.prometheus.general.errors.WithLabelValues("azure").Inc()
 				nodeContextLogger.Errorf("node %s repair failed: %s", node.Name, err.Error())
 				r.repair.nodeLock.Add(node.Name, true, r.Config.Repair.LockDurationError) //nolint:golint,errcheck
-				if k8sErr := r.k8sNodeSetLockAnnotation(node, r.Config.Repair.NodeLockAnnotation, r.Config.Repair.LockDurationError); k8sErr != nil {
+				if k8sErr := node.AnnotationLockSet(r.Config.Repair.NodeLockAnnotation, r.Config.Repair.LockDurationError); k8sErr != nil {
 					nodeContextLogger.Error(k8sErr)
 				}
 				continue nodeLoop
 			} else {
 				// lock vm for next redeploy, can take up to 15 mins
 				r.repair.nodeLock.Add(node.Name, true, r.Config.Repair.LockDuration) //nolint:golint,errcheck
-				if k8sErr := r.k8sNodeSetLockAnnotation(node, r.Config.Repair.NodeLockAnnotation, r.Config.Repair.LockDuration); k8sErr != nil {
+				if k8sErr := node.AnnotationLockSet(r.Config.Repair.NodeLockAnnotation, r.Config.Repair.LockDuration); k8sErr != nil {
 					nodeContextLogger.Error(k8sErr)
 				}
 				nodeContextLogger.Infof("node %s successfully scheduled for repair", node.Name)

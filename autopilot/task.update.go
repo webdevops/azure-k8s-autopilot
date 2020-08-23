@@ -81,6 +81,17 @@ func (r *AzureK8sAutopilot) updateRun(contextLogger *log.Entry) {
 func (r *AzureK8sAutopilot) updateCollectCandiates(contextLogger *log.Entry, nodeList []*k8s.Node) (candidateList []*k8s.Node) {
 	candidateList = []*k8s.Node{}
 
+	// check if there are ongoing updates (eg. operator was killed while doing updates)
+	for _, v := range nodeList {
+		node := v
+		if node.AnnotationExists(r.Config.Update.NodeOngoingAnnotation) {
+			// annotation found, continue with update of this node and only this node
+			candidateList = append(candidateList, node)
+			return
+		}
+	}
+
+	// check if there are nodes which needs updates
 	for _, v := range nodeList {
 		node := v
 		if node.AzureVmss != nil {
@@ -97,6 +108,10 @@ func (r *AzureK8sAutopilot) updateNode(contextLogger *log.Entry, node *k8s.Node,
 	// trigger Azure VMSS instance update
 	r.prometheus.update.count.WithLabelValues().Inc()
 
+	if err := node.AnnotationSet(r.Config.Update.NodeOngoingAnnotation, "true"); err != nil {
+		return err
+	}
+
 	doReimage := r.Config.Update.AzureVmssAction == "update+reimage"
 	err := r.azureVmssInstanceUpdate(contextLogger, node, *nodeInfo, doReimage)
 	if err != nil {
@@ -108,6 +123,10 @@ func (r *AzureK8sAutopilot) updateNode(contextLogger *log.Entry, node *k8s.Node,
 			return fmt.Errorf("node failed to uncordon: %v", err)
 		}
 		contextLogger.Info("node successfully updated")
+
+		if err := node.AnnotationRemove(r.Config.Update.NodeOngoingAnnotation); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -115,7 +134,7 @@ func (r *AzureK8sAutopilot) updateNode(contextLogger *log.Entry, node *k8s.Node,
 
 func (r *AzureK8sAutopilot) updateNodeLock(contextLogger *log.Entry, node *k8s.Node, dur time.Duration) {
 	r.update.nodeLock.Add(node.Name, true, dur) //nolint:golint,errcheck
-	if k8sErr := r.k8sNodeSetLockAnnotation(node, r.Config.Update.NodeLockAnnotation, dur); k8sErr != nil {
+	if k8sErr := node.AnnotationLockSet(r.Config.Update.NodeLockAnnotation, dur); k8sErr != nil {
 		contextLogger.Error(k8sErr)
 	}
 }

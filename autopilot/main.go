@@ -375,10 +375,13 @@ func (r *AzureK8sAutopilot) sendNotificationf(message string, args ...interface{
 }
 
 func (r *AzureK8sAutopilot) sendNotification(message string) {
-	for _, url := range r.Config.Notification {
-		if err := shoutrrr.Send(url, message); err != nil {
-			log.Errorf("Unable to send shoutrrr notification: %v", err.Error())
-		}
+	sender, err := shoutrrr.CreateSender(r.Config.Notification...)
+	if err != nil {
+		log.Errorf("Unable to send shoutrrr notification: %v", err.Error())
+	}
+
+	if sender != nil {
+		sender.Send(message, nil)
 	}
 }
 
@@ -388,12 +391,12 @@ func (r *AzureK8sAutopilot) syncNodeLockCache(contextLogger *log.Entry, nodeList
 	cacheLock.Flush()
 
 	for _, node := range nodeList {
-		if lockDuration, exists := r.k8sGetNodeLockAnnotation(node, annotationName); exists {
+		if lockDuration, exists := node.AnnotationLockCheck(annotationName); exists {
 			// check if annotation is valid and if node status is ok
 			if lockDuration == nil || lockDuration.Seconds() <= 0 {
 				// remove annotation
 				contextLogger.Debugf("removing lock annotation \"%s\" from node %s", annotationName, node.Name)
-				if err := r.k8sNodeRemoveAnnotation(node, annotationName); err != nil {
+				if err := node.AnnotationRemove(annotationName); err != nil {
 					contextLogger.Error(err)
 				}
 				continue
@@ -411,7 +414,7 @@ func (r *AzureK8sAutopilot) autoUncordonExpiredNodes(contextLogger *log.Entry, n
 	contextLogger.Debugf("checking expired but still cordoned nodes for annotation \"%s\"", annotationName)
 
 	for _, node := range nodeList {
-		if lockDuration, exists := r.k8sGetNodeLockAnnotation(node, annotationName); exists {
+		if lockDuration, exists := node.AnnotationLockCheck(annotationName); exists {
 			// check if annotation is valid and if node status is ok
 			if lockDuration == nil || lockDuration.Seconds() <= 0 {
 				// check if node is cordoned
