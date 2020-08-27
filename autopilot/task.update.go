@@ -77,6 +77,12 @@ func (r *AzureK8sAutopilot) updateCollectCandiates(contextLogger *log.Entry, nod
 	// check if there are ongoing updates (eg. operator was killed while doing updates)
 	for _, v := range nodeList {
 		node := v
+
+		// check if node is excluded
+		if node.AnnotationExists(r.Config.Update.NodeExcludeAnnotation) {
+			continue
+		}
+
 		if node.AnnotationExists(r.Config.Update.NodeOngoingAnnotation) {
 			// annotation found, continue with update of this node and only this node
 			candidateList = append(candidateList, node)
@@ -87,6 +93,12 @@ func (r *AzureK8sAutopilot) updateCollectCandiates(contextLogger *log.Entry, nod
 	// check if there are nodes which needs updates
 	for _, v := range nodeList {
 		node := v
+
+		// check if node is excluded
+		if node.AnnotationExists(r.Config.Update.NodeExcludeAnnotation) {
+			continue
+		}
+
 		if node.AzureVmss != nil {
 			if node.AzureVmss.LatestModelApplied != nil && !*node.AzureVmss.LatestModelApplied {
 				contextLogger.WithField("node", node.Name).Infof("found updatable node")
