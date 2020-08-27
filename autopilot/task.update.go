@@ -113,7 +113,14 @@ func (r *AzureK8sAutopilot) updateNode(contextLogger *log.Entry, node *k8s.Node,
 	// trigger Azure VMSS instance update
 	r.prometheus.update.count.WithLabelValues().Inc()
 
-	if err := node.AnnotationSet(r.Config.Update.NodeOngoingAnnotation, "true"); err != nil {
+	annotations := map[string]string{
+		// mark node as ongoing update
+		r.Config.Update.NodeOngoingAnnotation: "true",
+		// ensure cluster-autoscaler is not deleting node
+		k8s.ClusterAutoscaleScaleDownDisableAnnotation: "true",
+	}
+
+	if err := node.AnnotationsSet(annotations); err != nil {
 		return err
 	}
 

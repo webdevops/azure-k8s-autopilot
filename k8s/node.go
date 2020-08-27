@@ -13,6 +13,10 @@ import (
 	"time"
 )
 
+const (
+	ClusterAutoscaleScaleDownDisableAnnotation = "cluster-autoscaler.kubernetes.io/scale-down-disabled"
+)
+
 type (
 	Node struct {
 		*v1.Node
@@ -54,16 +58,63 @@ func (n *Node) AnnotationSet(name, value string) (err error) {
 
 	return n.PatchSetApply(patches)
 }
+func (n *Node) AnnotationsSet(annotations map[string]string) (err error) {
+	patches := []JsonPatch{}
 
-func (n *Node) AnnotationLockSet(name string, dur time.Duration) error {
-	return n.AnnotationSet(name, time.Now().Add(dur).Format(time.RFC3339))
+	for name, value := range annotations {
+		patches = append(patches, JsonPatchString{
+			Op:    "replace",
+			Path:  fmt.Sprintf("/metadata/annotations/%s", PatchPathEsacpe(name)),
+			Value: value,
+		})
+	}
+
+	return n.PatchSetApply(patches)
 }
 
-func (n *Node) AnnotationRemove(name string) (err error) {
+func (n *Node) AnnotationLockSet(name string, dur time.Duration) error {
+	value := time.Now().Add(dur).Format(time.RFC3339)
 	patches := []JsonPatch{JsonPatchString{
+		Op:    "replace",
+		Path:  fmt.Sprintf("/metadata/annotations/%s", PatchPathEsacpe(name)),
+		Value: value,
+	}}
+
+	// add autoscaler scale-down block
+	name = ClusterAutoscaleScaleDownDisableAnnotation
+	patches = append(patches, JsonPatchString{
+		Op:   "replace",
+		Path: fmt.Sprintf("/metadata/annotations/%s", PatchPathEsacpe(name)),
+		Value: "true",
+	})
+
+	return n.PatchSetApply(patches)
+}
+
+func (n *Node) AnnotationLockRemove(name string) error {
+	patches := []JsonPatch{JsonPatchString{
+		Op:    "remove",
+		Path:  fmt.Sprintf("/metadata/annotations/%s", PatchPathEsacpe(name)),
+	}}
+
+	// remove autoscaler scale-down block
+	name = ClusterAutoscaleScaleDownDisableAnnotation
+	patches = append(patches, JsonPatchString{
 		Op:   "remove",
 		Path: fmt.Sprintf("/metadata/annotations/%s", PatchPathEsacpe(name)),
-	}}
+	})
+
+	return n.PatchSetApply(patches)
+}
+
+func (n *Node) AnnotationRemove(names ...string) (err error) {
+	patches := []JsonPatch{}
+	for _, name := range names {
+		patches = append(patches, JsonPatchString{
+			Op:   "remove",
+			Path: fmt.Sprintf("/metadata/annotations/%s", PatchPathEsacpe(name)),
+		})
+	}
 
 	return n.PatchSetApply(patches)
 }
