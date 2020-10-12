@@ -128,10 +128,12 @@ func (n *NodeList) startNodeWatch() error {
 func (n *NodeList) NodeList() (list []*Node) {
 	list = []*Node{}
 
+	n.lock.Lock()
 	for _, v := range n.list {
 		node := v
 		list = append(list, node)
 	}
+	n.lock.Unlock()
 	return
 }
 
@@ -202,7 +204,7 @@ func (n *NodeList) refreshAzureVmssCache() error {
 }
 
 func (n *NodeList) NodeCountByProvisionState(provisionState string) (count int) {
-	for _, node := range n.list {
+	for _, node := range n.NodeList() {
 		if node.AzureVmss != nil && node.AzureVmss.ProvisioningState != nil {
 			if *node.AzureVmss.ProvisioningState == provisionState {
 				count++
@@ -215,7 +217,7 @@ func (n *NodeList) NodeCountByProvisionState(provisionState string) (count int) 
 func (n *NodeList) GetAzureVmssList() (vmssList map[string]*NodeInfo, err error) {
 	vmssList = map[string]*NodeInfo{}
 
-	for _, node := range n.list {
+	for _, node := range n.NodeList() {
 		if node.IsAzureProvider() {
 			// parse node informations from provider ID
 			nodeInfo, parseErr := ExtractNodeInfo(node)
