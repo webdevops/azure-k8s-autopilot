@@ -84,6 +84,7 @@ type (
 		IgnoreDaemonsets bool          `long:"drain.ignore-daemonsets"  env:"DRAIN_IGNORE_DAEMONSETS"  description:"Ignore DaemonSet-managed pods."`
 		PodSelector      string        `long:"drain.pod-selector"       env:"DRAIN_POD_SELECTOR"       description:"Label selector to filter pods on the node"`
 		Timeout          time.Duration `long:"drain.timeout"            env:"DRAIN_TIMEOUT"            description:"The length of time to wait before giving up, zero means infinite" default:"0s"`
+		WaitAfter        time.Duration `long:"drain.wait-after"         env:"DRAIN_WAIT_AFTER"         description:"Wait after drain to let Kubernetes detach volumes etc"   default:"30s"`
 		DryRun           bool          `long:"drain.dry-run"            env:"DRAIN_DRY_RUN"            description:"Do not drain, uncordon or label any node"`
 	}
 )

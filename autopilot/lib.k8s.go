@@ -3,6 +3,7 @@ package autopilot
 import (
 	log "github.com/sirupsen/logrus"
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
+	"time"
 )
 
 // trigger drain node
@@ -16,7 +17,14 @@ func (r *AzureK8sAutopilot) k8sDrainNode(contextLogger *log.Entry, node *k8s.Nod
 	kubectl.Conf = r.Config.Drain
 	kubectl.SetNode(node.Name)
 	kubectl.SetLogger(contextLogger)
-	return kubectl.NodeDrain()
+	if err := kubectl.NodeDrain(); err != nil {
+		return err
+	}
+
+	contextLogger.Infof("waiting %s after drain of node %s", r.Config.Drain.WaitAfter.String(), node.Name)
+	time.Sleep(r.Config.Drain.WaitAfter)
+
+	return nil
 }
 
 // trigger uncordon node
