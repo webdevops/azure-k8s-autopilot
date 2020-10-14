@@ -32,6 +32,9 @@ Application Options:
       --debug                                               debug mode [$DEBUG]
   -v, --verbose                                             verbose mode [$VERBOSE]
       --log.json                                            Switch log output to json format [$LOG_JSON]
+      --repautoscaler.scaledown-locktime=                   Prevents cluster autoscaler from scaling down the affected
+                                                            node after update and repair (default: 60m)
+                                                            [$AUTOSCALER_SCALEDOWN_LOCKTIME]
       --kube.node.labelselector=                            Node Label selector which nodes should be checked
                                                             [$KUBE_NODE_LABELSELECTOR]
       --lease.enable                                        Enable lease (leader election; enabled by default in docker

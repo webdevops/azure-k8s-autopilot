@@ -25,6 +25,10 @@ type (
 			LogJson bool `           long:"log.json"     env:"LOG_JSON" description:"Switch log output to json format"`
 		}
 
+		Autoscaler struct {
+			ScaledownLockTime time.Duration `long:"repautoscaler.scaledown-locktime"       env:"AUTOSCALER_SCALEDOWN_LOCKTIME"       description:"Prevents cluster autoscaler from scaling down the affected node after update and repair"   default:"60m"`
+		}
+
 		// k8s
 		K8S struct {
 			NodeLabelSelector string `long:"kube.node.labelselector"     env:"KUBE_NODE_LABELSELECTOR"     description:"Node Label selector which nodes should be checked"        default:""`

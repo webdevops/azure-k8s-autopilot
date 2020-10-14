@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
+	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -14,6 +15,7 @@ import (
 )
 
 const (
+	ClusterAutoscaleScaleDownExpireAnnotation  = "cluster-autoscaler.kubernetes.io/scale-down-disabled-expire"
 	ClusterAutoscaleScaleDownDisableAnnotation = "cluster-autoscaler.kubernetes.io/scale-down-disabled"
 )
 
@@ -24,6 +26,16 @@ type (
 		AzureVmss *compute.VirtualMachineScaleSetVM
 	}
 )
+
+func (n *Node) Cleanup() {
+	if lockDuration, exists := n.AnnotationLockCheck(ClusterAutoscaleScaleDownExpireAnnotation); exists {
+		if lockDuration == nil || lockDuration.Seconds() <= 0 {
+			if err := n.AnnotationRemove(ClusterAutoscaleScaleDownExpireAnnotation, ClusterAutoscaleScaleDownDisableAnnotation); err != nil {
+				log.Error(err)
+			}
+		}
+	}
+}
 
 // check if node is an Azure node
 func (n *Node) IsAzureProvider() bool {
@@ -72,7 +84,7 @@ func (n *Node) AnnotationsSet(annotations map[string]string) (err error) {
 	return n.PatchSetApply(patches)
 }
 
-func (n *Node) AnnotationLockSet(name string, dur time.Duration) error {
+func (n *Node) AnnotationLockSet(name string, dur time.Duration, autoscalerScaledownTimeLock time.Duration) error {
 	value := time.Now().Add(dur).Format(time.RFC3339)
 	patches := []JsonPatch{JsonPatchString{
 		Op:    "replace",
@@ -81,28 +93,32 @@ func (n *Node) AnnotationLockSet(name string, dur time.Duration) error {
 	}}
 
 	// add autoscaler scale-down block
-	name = ClusterAutoscaleScaleDownDisableAnnotation
-	patches = append(patches, JsonPatchString{
-		Op:   "replace",
-		Path: fmt.Sprintf("/metadata/annotations/%s", PatchPathEsacpe(name)),
-		Value: "true",
-	})
+	if autoscalerScaledownTimeLock.Seconds() > 0 {
+		// expire annotation
+		name = ClusterAutoscaleScaleDownExpireAnnotation
+		patches = append(patches, JsonPatchString{
+			Op:    "replace",
+			Path:  fmt.Sprintf("/metadata/annotations/%s", PatchPathEsacpe(name)),
+			Value: time.Now().Add(autoscalerScaledownTimeLock).Format(time.RFC3339),
+		})
+
+		// disable scaledown annotation
+		name = ClusterAutoscaleScaleDownDisableAnnotation
+		patches = append(patches, JsonPatchString{
+			Op:    "replace",
+			Path:  fmt.Sprintf("/metadata/annotations/%s", PatchPathEsacpe(name)),
+			Value: "true",
+		})
+	}
 
 	return n.PatchSetApply(patches)
 }
 
 func (n *Node) AnnotationLockRemove(name string) error {
 	patches := []JsonPatch{JsonPatchString{
-		Op:    "remove",
-		Path:  fmt.Sprintf("/metadata/annotations/%s", PatchPathEsacpe(name)),
-	}}
-
-	// remove autoscaler scale-down block
-	name = ClusterAutoscaleScaleDownDisableAnnotation
-	patches = append(patches, JsonPatchString{
 		Op:   "remove",
 		Path: fmt.Sprintf("/metadata/annotations/%s", PatchPathEsacpe(name)),
-	})
+	}}
 
 	return n.PatchSetApply(patches)
 }

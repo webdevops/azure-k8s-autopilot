@@ -125,6 +125,13 @@ func (n *NodeList) startNodeWatch() error {
 	return fmt.Errorf("terminated")
 }
 
+func (n *NodeList) Cleanup() {
+	for _, v := range n.NodeList() {
+		node := v
+		node.Cleanup()
+	}
+}
+
 func (n *NodeList) NodeList() (list []*Node) {
 	list = []*Node{}
 
