@@ -1,8 +1,9 @@
 FROM golang:1.15 as build
-
+ARG TARGETOS
+ARG TARGETARCH
 # kubectl
 WORKDIR /
-RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/$TARGETOS/$TARGETARCH/kubectl
 RUN chmod +x /kubectl
 RUN /kubectl version --client=true --short=true
 
@@ -16,6 +17,7 @@ RUN make dependencies
 
 # Compile
 COPY ./ /go/src/github.com/webdevops/azure-k8s-autopilot
+RUN make test
 RUN make lint
 RUN make build
 RUN ./azure-k8s-autopilot --help

@@ -2,8 +2,8 @@ Azurer Kubernetes Autopilot
 ============================
 
 [![license](https://img.shields.io/github/license/webdevops/azure-k8s-autopilot.svg)](https://github.com/webdevops/azure-k8s-autopilot/blob/master/LICENSE)
-[![Docker](https://img.shields.io/docker/cloud/automated/webdevops/azure-k8s-autopilot)](https://hub.docker.com/r/webdevops/azure-k8s-autopilot/)
-[![Docker Build Status](https://img.shields.io/docker/cloud/build/webdevops/azure-k8s-autopilot)](https://hub.docker.com/r/webdevops/azure-k8s-autopilot/)
+[![DockerHub](https://img.shields.io/badge/DockerHub-webdevops%2Fazure--k8s--autopilot-blue)](https://hub.docker.com/r/webdevops/azure-k8s-autopilot/)
+[![Quay.io](https://img.shields.io/badge/Quay.io-webdevops%2Fazure--k8s--autopilot-blue)](https://quay.io/repository/webdevops/azure-k8s-autopilot)
 
 Kubernetess service for automatic maintenance of an Azure cluster.
 
