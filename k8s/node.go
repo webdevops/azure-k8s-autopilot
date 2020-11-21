@@ -145,7 +145,7 @@ func (n *Node) AnnotationLockCheck(name string) (dur *time.Duration, exists bool
 				return
 			}
 
-			lockDuration := lockTime.Sub(time.Now())
+			lockDuration := time.Since(lockTime)
 			dur = &lockDuration
 		}
 	}

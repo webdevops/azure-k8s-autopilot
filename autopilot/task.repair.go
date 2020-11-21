@@ -24,7 +24,7 @@ func (r *AzureK8sAutopilot) repairRun(contextLogger *log.Entry) {
 		if nodeIsHealthy, nodeLastHeartbeat := node.GetHealthStatus(); !nodeIsHealthy {
 			// node is NOT healthy
 			nodeLastHeartbeatText := nodeLastHeartbeat.String()
-			nodeLastHeartbeatAge := time.Now().Sub(nodeLastHeartbeat).Seconds()
+			nodeLastHeartbeatAge := time.Since(nodeLastHeartbeat).Seconds()
 
 			// ignore cordoned nodes, maybe maintenance work in progress
 			if node.Spec.Unschedulable {
@@ -43,8 +43,8 @@ func (r *AzureK8sAutopilot) repairRun(contextLogger *log.Entry) {
 			var err error
 
 			// redeploy timeout lock
-			if _, expiry, exists := r.repair.nodeLock.GetWithExpiration(node.Name); exists == true {
-				nodeContextLogger.Infof("detected unhealthy node %s (last heartbeat: %s), locked (relased in %v)", node.Name, nodeLastHeartbeatText, expiry.Sub(time.Now()))
+			if _, expiry, exists := r.repair.nodeLock.GetWithExpiration(node.Name); exists {
+				nodeContextLogger.Infof("detected unhealthy node %s (last heartbeat: %s), locked (relased in %v)", node.Name, nodeLastHeartbeatText, expiry.Sub(time.Now())) //nolint:gosimple
 				continue
 			}
 

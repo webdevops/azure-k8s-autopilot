@@ -1,7 +1,6 @@
 package k8s
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -44,14 +43,14 @@ func ExtractNodeInfo(node *Node) (*NodeInfo, error) {
 	if match := azureSubscriptionRegexp.FindStringSubmatch(nodeProviderId); len(match) == 2 {
 		info.Subscription = match[1]
 	} else {
-		return nil, errors.New(fmt.Sprintf("unable to detect Azure Subscription from Node ProviderId (Azure resource ID): %v", nodeProviderId))
+		return nil, fmt.Errorf("unable to detect Azure Subscription from Node ProviderId (Azure resource ID): %v", nodeProviderId)
 	}
 
 	// extract ResourceGroup
 	if match := azureResourceGroupRegexp.FindStringSubmatch(nodeProviderId); len(match) == 2 {
 		info.ResourceGroup = match[1]
 	} else {
-		return nil, errors.New(fmt.Sprintf("unable to detect Azure ResourceGroup from Node ProviderId (Azure resource ID): %v", nodeProviderId))
+		return nil, fmt.Errorf("unable to detect Azure ResourceGroup from Node ProviderId (Azure resource ID): %v", nodeProviderId)
 	}
 
 	if strings.Contains(nodeProviderId, "/Microsoft.Compute/virtualMachineScaleSets/") {
@@ -62,14 +61,14 @@ func ExtractNodeInfo(node *Node) (*NodeInfo, error) {
 		if match := azureVmssNameRegexp.FindStringSubmatch(nodeProviderId); len(match) == 2 {
 			info.VMScaleSetName = match[1]
 		} else {
-			return nil, errors.New(fmt.Sprintf("unable to detect Azure VMScaleSetName from Node ProviderId (Azure resource ID): %v", nodeProviderId))
+			return nil, fmt.Errorf("unable to detect Azure VMScaleSetName from Node ProviderId (Azure resource ID): %v", nodeProviderId)
 		}
 
 		// extract VmssInstanceId
 		if match := azureVmssInstanceIdRegexp.FindStringSubmatch(nodeProviderId); len(match) == 2 {
 			info.VMInstanceID = match[1]
 		} else {
-			return nil, errors.New(fmt.Sprintf("unable to detect Azure VmssInstanceId from Node ProviderId (Azure resource ID): %v", nodeProviderId))
+			return nil, fmt.Errorf("unable to detect Azure VmssInstanceId from Node ProviderId (Azure resource ID): %v", nodeProviderId)
 		}
 	} else {
 		// Is VM
@@ -79,7 +78,7 @@ func ExtractNodeInfo(node *Node) (*NodeInfo, error) {
 		if match := azureVmNameRegexp.FindStringSubmatch(nodeProviderId); len(match) == 2 {
 			info.VMname = match[1]
 		} else {
-			return nil, errors.New(fmt.Sprintf("unable to detect Azure VMname from Node ProviderId (Azure resource ID): %v", nodeProviderId))
+			return nil, fmt.Errorf("unable to detect Azure VMname from Node ProviderId (Azure resource ID): %v", nodeProviderId)
 		}
 	}
 

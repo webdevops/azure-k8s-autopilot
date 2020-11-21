@@ -1,7 +1,6 @@
 package autopilot
 
 import (
-	"errors"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
 	log "github.com/sirupsen/logrus"
@@ -151,7 +150,7 @@ func (r *AzureK8sAutopilot) checkVmProvisionState(provisioningState *string) (er
 	// checking vm provision state
 	vmProvisionState := strings.ToLower(*provisioningState)
 	if !stringArrayContains(r.Config.Repair.ProvisioningState, vmProvisionState) {
-		err = errors.New(fmt.Sprintf("VM is in ProvisioningState \"%v\"", vmProvisionState))
+		err = fmt.Errorf("VM is in ProvisioningState \"%v\"", vmProvisionState)
 	}
 
 	return

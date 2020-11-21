@@ -46,7 +46,7 @@ func main() {
 	startHttpServer()
 
 	termChan := make(chan os.Signal)
-	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM) //nolint:staticcheck
 	<-termChan
 	log.Info("shutdown signal received, trying to stop")
 	pilot.Stop()
