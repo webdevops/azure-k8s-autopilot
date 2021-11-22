@@ -51,7 +51,8 @@ func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *log.Entry, no
 		vmssInstanceIdsDelete := compute.VirtualMachineScaleSetVMInstanceRequiredIDs{
 			InstanceIds: &[]string{nodeInfo.VMInstanceID},
 		}
-		_, err = vmssClient.DeleteInstances(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, vmssInstanceIdsDelete)
+		forceDelete := false
+		_, err = vmssClient.DeleteInstances(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, vmssInstanceIdsDelete, &forceDelete)
 	}
 	return err
 }
