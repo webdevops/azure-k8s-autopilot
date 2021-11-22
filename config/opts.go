@@ -80,16 +80,16 @@ type (
 	}
 
 	OptsDrain struct {
-		KubectlPath      string        `long:"drain.kubectl"            env:"DRAIN_KUBECTL"            description:"Path to kubectl binary" default:"kubectl"`
-		Enable           bool          `long:"drain.enable"             env:"DRAIN_ENABLE"             description:"Enable drain handling"`
-		DeleteLocalData  bool          `long:"drain.delete-local-data"  env:"DRAIN_DELETE_LOCAL_DATA"  description:"Continue even if there are pods using emptyDir (local data that will be deleted when the node is drained)"`
-		Force            bool          `long:"drain.force"              env:"DRAIN_FORCE"              description:"Continue even if there are pods not managed by a ReplicationController, ReplicaSet, Job, DaemonSet or StatefulSet"`
-		GracePeriod      int64         `long:"drain.grace-period"       env:"DRAIN_GRACE_PERIOD"       description:"Period of time in seconds given to each pod to terminate gracefully. If negative, the default value specified in the pod will be used."`
-		IgnoreDaemonsets bool          `long:"drain.ignore-daemonsets"  env:"DRAIN_IGNORE_DAEMONSETS"  description:"Ignore DaemonSet-managed pods."`
-		PodSelector      string        `long:"drain.pod-selector"       env:"DRAIN_POD_SELECTOR"       description:"Label selector to filter pods on the node"`
-		Timeout          time.Duration `long:"drain.timeout"            env:"DRAIN_TIMEOUT"            description:"The length of time to wait before giving up, zero means infinite" default:"0s"`
-		WaitAfter        time.Duration `long:"drain.wait-after"         env:"DRAIN_WAIT_AFTER"         description:"Wait after drain to let Kubernetes detach volumes etc"   default:"30s"`
-		DryRun           bool          `long:"drain.dry-run"            env:"DRAIN_DRY_RUN"            description:"Do not drain, uncordon or label any node"`
+		KubectlPath        string        `long:"drain.kubectl"               env:"DRAIN_KUBECTL"               description:"Path to kubectl binary" default:"kubectl"`
+		Enable             bool          `long:"drain.enable"                env:"DRAIN_ENABLE"                description:"Enable drain handling"`
+		DeleteEmptydirData bool          `long:"drain.delete-emptydir-data"  env:"DRAIN_DELETE_EMPTYDIR_DATA"  description:"Continue even if there are pods using emptyDir (local emptydir that will be deleted when the node is drained)"`
+		Force              bool          `long:"drain.force"                 env:"DRAIN_FORCE"                 description:"Continue even if there are pods not managed by a ReplicationController, ReplicaSet, Job, DaemonSet or StatefulSet"`
+		GracePeriod        int64         `long:"drain.grace-period"          env:"DRAIN_GRACE_PERIOD"          description:"Period of time in seconds given to each pod to terminate gracefully. If negative, the default value specified in the pod will be used."`
+		IgnoreDaemonsets   bool          `long:"drain.ignore-daemonsets"     env:"DRAIN_IGNORE_DAEMONSETS"     description:"Ignore DaemonSet-managed pods."`
+		PodSelector        string        `long:"drain.pod-selector"          env:"DRAIN_POD_SELECTOR"          description:"Label selector to filter pods on the node"`
+		Timeout            time.Duration `long:"drain.timeout"               env:"DRAIN_TIMEOUT"               description:"The length of time to wait before giving up, zero means infinite" default:"0s"`
+		WaitAfter          time.Duration `long:"drain.wait-after"            env:"DRAIN_WAIT_AFTER"            description:"Wait after drain to let Kubernetes detach volumes etc"   default:"30s"`
+		DryRun             bool          `long:"drain.dry-run"               env:"DRAIN_DRY_RUN"               description:"Do not drain, uncordon or label any node"`
 	}
 )
 

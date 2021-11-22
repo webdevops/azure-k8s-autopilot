@@ -100,6 +100,10 @@ func initArgparser() {
 			},
 		})
 	}
+
+	if val := os.Getenv("DRAIN_DELETE_LOCAL_DATA"); val != "" {
+		log.Panic("env var DRAIN_DELETE_LOCAL_DATA is deprecated, please use DRAIN_DELETE_EMPTYDIR_DATA")
+	}
 }
 
 // start and handle prometheus handler

@@ -29,8 +29,8 @@ func (k *Kubectl) NodeDrain() error {
 	kubectlDrainOpts := []string{"drain", k.nodeName}
 	kubectlDrainOpts = append(kubectlDrainOpts, fmt.Sprintf("--timeout=%v", k.Conf.Timeout.String()))
 
-	if k.Conf.DeleteLocalData {
-		kubectlDrainOpts = append(kubectlDrainOpts, "--delete-local-data=true")
+	if k.Conf.DeleteEmptydirData {
+		kubectlDrainOpts = append(kubectlDrainOpts, "--delete-emptydir-data=true")
 	}
 
 	if k.Conf.Force {
