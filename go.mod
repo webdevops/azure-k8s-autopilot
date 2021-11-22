@@ -8,7 +8,7 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.3
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.0 // indirect
-	github.com/containrrr/shoutrrr v0.0.0-20201115195304-c600010ff37a
+	github.com/containrrr/shoutrrr v0.5.2
 	github.com/go-logr/logr v0.2.1 // indirect
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/operator-framework/operator-lib v0.2.0
