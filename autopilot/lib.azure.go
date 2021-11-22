@@ -10,7 +10,6 @@ import (
 
 // trigger VMSS repair task
 func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *log.Entry, nodeInfo k8s.NodeInfo) error {
-	var err error
 	vmssInstanceIds := compute.VirtualMachineScaleSetVMInstanceIDs{
 		InstanceIds: &[]string{nodeInfo.VMInstanceID},
 	}
@@ -42,19 +41,46 @@ func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *log.Entry, no
 	// trigger repair
 	switch r.Config.Repair.AzureVmssAction {
 	case "restart":
-		_, err = vmssClient.Restart(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceIds)
+		if future, err := vmssClient.Restart(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceIds); err == nil {
+			if futureErr := future.WaitForCompletionRef(r.ctx, vmssClient.Client); futureErr != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	case "redeploy":
-		_, err = vmssClient.Redeploy(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceIds)
+		if future, err := vmssClient.Redeploy(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceIds); err == nil {
+			if futureErr := future.WaitForCompletionRef(r.ctx, vmssClient.Client); futureErr != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	case "reimage":
-		_, err = vmssClient.Reimage(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceReimage)
+		if future, err := vmssClient.Reimage(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceReimage); err == nil {
+			if futureErr := future.WaitForCompletionRef(r.ctx, vmssClient.Client); futureErr != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	case "delete":
 		vmssInstanceIdsDelete := compute.VirtualMachineScaleSetVMInstanceRequiredIDs{
 			InstanceIds: &[]string{nodeInfo.VMInstanceID},
 		}
 		forceDelete := false
-		_, err = vmssClient.DeleteInstances(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, vmssInstanceIdsDelete, &forceDelete)
+		if future, err := vmssClient.DeleteInstances(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, vmssInstanceIdsDelete, &forceDelete); err == nil {
+			if futureErr := future.WaitForCompletionRef(r.ctx, vmssClient.Client); futureErr != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	default:
+		return fmt.Errorf("action %s is not valid", r.Config.Repair.AzureVmssAction)
 	}
-	return err
+
+	return nil
 }
 
 func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *log.Entry, nodeInfo k8s.NodeInfo) error {
@@ -79,11 +105,26 @@ func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *log.Entry, nodeInfo k8s
 
 	switch r.Config.Repair.AzureVmAction {
 	case "restart":
-		_, err = client.Restart(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMname)
+		if future, err := client.Restart(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMname); err == nil {
+			if futureErr := future.WaitForCompletionRef(r.ctx, client.Client); futureErr != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	case "redeploy":
-		_, err = client.Redeploy(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMname)
+		if future, err := client.Redeploy(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMname); err == nil {
+			if futureErr := future.WaitForCompletionRef(r.ctx, client.Client); futureErr != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	default:
+		return fmt.Errorf("action %s is not valid", r.Config.Repair.AzureVmssAction)
 	}
-	return err
+
+	return nil
 }
 
 // trigger VMSS instance update

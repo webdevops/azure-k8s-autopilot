@@ -99,7 +99,7 @@ func (r *AzureK8sAutopilot) repairRun(contextLogger *log.Entry) {
 				if k8sErr := node.AnnotationLockSet(r.Config.Repair.NodeLockAnnotation, r.Config.Repair.LockDuration, r.Config.Autoscaler.ScaledownLockTime); k8sErr != nil {
 					nodeContextLogger.Error(k8sErr)
 				}
-				nodeContextLogger.Infof("node %s successfully scheduled for repair", node.Name)
+				nodeContextLogger.Infof("node %s successfully repaired", node.Name)
 			}
 		} else {
 			// node IS healthy
