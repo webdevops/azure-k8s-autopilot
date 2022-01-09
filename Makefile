@@ -34,6 +34,15 @@ build-push-development:
 test:
 	go test ./...
 
+.PHONY: recreate-go-mod
+recreate-go-mod:
+	rm -f go.mod go.sum
+	GO111MODULE=on go mod init github.com/webdevopos/azure-k8s-autopilot
+	GO111MODULE=on go get k8s.io/client-go@v0.22.0
+	GO111MODULE=on go get -u github.com/Azure/azure-sdk-for-go/...
+	GO111MODULE=on go get
+	GO111MODULE=on go mod vendor
+
 .PHONY: lint
 lint: $(GOLANGCI_LINT_BIN)
 	$(GOLANGCI_LINT_BIN) run -E exportloopref,gofmt --timeout=10m
