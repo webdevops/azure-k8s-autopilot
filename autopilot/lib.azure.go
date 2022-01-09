@@ -18,10 +18,10 @@ func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *log.Entry, no
 		InstanceIds: &[]string{nodeInfo.VMInstanceID},
 	}
 
-	vmssClient := compute.NewVirtualMachineScaleSetsClient(nodeInfo.Subscription)
+	vmssClient := compute.NewVirtualMachineScaleSetsClientWithBaseURI(r.azureEnvironment.ResourceManagerEndpoint, nodeInfo.Subscription)
 	vmssClient.Authorizer = r.azureAuthorizer
 
-	vmssVmClient := compute.NewVirtualMachineScaleSetVMsClient(nodeInfo.Subscription)
+	vmssVmClient := compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(r.azureEnvironment.ResourceManagerEndpoint, nodeInfo.Subscription)
 	vmssVmClient.Authorizer = r.azureAuthorizer
 
 	// fetch instances
@@ -86,7 +86,7 @@ func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *log.Entry, no
 func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *log.Entry, nodeInfo k8s.NodeInfo) error {
 	var err error
 
-	client := compute.NewVirtualMachinesClient(nodeInfo.Subscription)
+	client := compute.NewVirtualMachinesClientWithBaseURI(r.azureEnvironment.ResourceManagerEndpoint, nodeInfo.Subscription)
 	client.Authorizer = r.azureAuthorizer
 
 	// fetch instances
@@ -131,10 +131,10 @@ func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *log.Entry, nodeInfo k8s
 func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, node *k8s.Node, nodeInfo k8s.NodeInfo, doReimage bool) error {
 	var err error
 
-	vmssClient := compute.NewVirtualMachineScaleSetsClient(nodeInfo.Subscription)
+	vmssClient := compute.NewVirtualMachineScaleSetsClientWithBaseURI(r.azureEnvironment.ResourceManagerEndpoint, nodeInfo.Subscription)
 	vmssClient.Authorizer = r.azureAuthorizer
 
-	vmssVmClient := compute.NewVirtualMachineScaleSetVMsClient(nodeInfo.Subscription)
+	vmssVmClient := compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(r.azureEnvironment.ResourceManagerEndpoint, nodeInfo.Subscription)
 	vmssVmClient.Authorizer = r.azureAuthorizer
 
 	// fetch instances

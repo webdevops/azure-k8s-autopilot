@@ -3,6 +3,7 @@ package autopilot
 import (
 	"fmt"
 	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/containrrr/shoutrrr"
 	"github.com/operator-framework/operator-lib/leader"
@@ -58,8 +59,9 @@ type (
 			}
 		}
 
-		azureAuthorizer autorest.Authorizer
-		k8sClient       *kubernetes.Clientset
+		azureAuthorizer  autorest.Authorizer
+		azureEnvironment azure.Environment
+		k8sClient        *kubernetes.Clientset
 
 		cache *cache.Cache
 
@@ -89,6 +91,7 @@ func (r *AzureK8sAutopilot) Init() {
 	r.nodeList = &k8s.NodeList{
 		NodeLabelSelector: r.Config.K8S.NodeLabelSelector,
 		AzureAuthorizer:   r.azureAuthorizer,
+		AzureEnvironment:  r.azureEnvironment,
 		Client:            r.k8sClient,
 	}
 
@@ -110,6 +113,11 @@ func (r *AzureK8sAutopilot) initAzure() {
 	r.azureAuthorizer, err = auth.NewAuthorizerFromEnvironment()
 	if err != nil {
 		panic(err)
+	}
+
+	r.azureEnvironment, err = azure.EnvironmentFromName(*r.Config.Azure.Environment)
+	if err != nil {
+		log.Panic(err)
 	}
 }
 

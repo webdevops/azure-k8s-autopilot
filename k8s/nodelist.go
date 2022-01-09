@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
 	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -22,7 +23,8 @@ type (
 		Client            *kubernetes.Clientset
 		AzureCacheTimeout *time.Duration
 
-		AzureAuthorizer autorest.Authorizer
+		AzureAuthorizer  autorest.Authorizer
+		AzureEnvironment azure.Environment
 
 		nodeWatcher watch.Interface
 		azureCache  *cache.Cache
@@ -185,7 +187,7 @@ func (n *NodeList) refreshAzureVmssCache() error {
 			"vmss":          vmssInfo.VMScaleSetName,
 		})
 
-		vmssVmClient := compute.NewVirtualMachineScaleSetVMsClient(vmssInfo.Subscription)
+		vmssVmClient := compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(n.AzureEnvironment.ResourceManagerEndpoint, vmssInfo.Subscription)
 		vmssVmClient.Authorizer = n.AzureAuthorizer
 
 		vmssInstanceList, err := vmssVmClient.List(n.ctx, vmssInfo.ResourceGroup, vmssInfo.VMScaleSetName, "", "", "")
