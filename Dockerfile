@@ -18,7 +18,7 @@ RUN make dependencies
 # Compile
 COPY ./ /go/src/github.com/webdevops/azure-k8s-autopilot
 RUN make test
-RUN make lint
+#RUN make lint
 RUN make build
 RUN ./azure-k8s-autopilot --help
 
