@@ -38,7 +38,7 @@ test:
 recreate-go-mod:
 	rm -f go.mod go.sum
 	GO111MODULE=on go mod init github.com/webdevopos/azure-k8s-autopilot
-	GO111MODULE=on go get k8s.io/client-go@v0.22.0
+	GO111MODULE=on go get k8s.io/client-go@v0.23.0
 	GO111MODULE=on go get -u github.com/Azure/azure-sdk-for-go/...
 	GO111MODULE=on go get
 	GO111MODULE=on go mod vendor
