@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/webdevopos/azure-k8s-autopilot/config"
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
+	"github.com/webdevops/go-prometheus-common/azuretracing"
 	"golang.org/x/net/context"
 	"k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +33,8 @@ type (
 
 		ctx    context.Context
 		Config config.Opts
+
+		UserAgent string
 
 		cron struct {
 			repair *cron.Cron
@@ -93,6 +96,7 @@ func (r *AzureK8sAutopilot) Init() {
 		AzureAuthorizer:   r.azureAuthorizer,
 		AzureEnvironment:  r.azureEnvironment,
 		Client:            r.k8sClient,
+		UserAgent:         r.UserAgent,
 	}
 
 	r.Config.Repair.ProvisioningStateAll = false
@@ -450,4 +454,13 @@ func (r *AzureK8sAutopilot) autoUncordonExpiredNodes(contextLogger *log.Entry, n
 			}
 		}
 	}
+}
+
+func (r *AzureK8sAutopilot) decorateAzureAutoRest(client *autorest.Client) {
+	client.Authorizer = r.azureAuthorizer
+	if err := client.AddToUserAgent(r.UserAgent); err != nil {
+		log.Panic(err)
+	}
+
+	azuretracing.DecoreAzureAutoRest(client)
 }

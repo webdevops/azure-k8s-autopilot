@@ -19,10 +19,10 @@ func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *log.Entry, no
 	}
 
 	vmssClient := compute.NewVirtualMachineScaleSetsClientWithBaseURI(r.azureEnvironment.ResourceManagerEndpoint, nodeInfo.Subscription)
-	vmssClient.Authorizer = r.azureAuthorizer
+	r.decorateAzureAutoRest(&vmssClient.BaseClient.Client)
 
 	vmssVmClient := compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(r.azureEnvironment.ResourceManagerEndpoint, nodeInfo.Subscription)
-	vmssVmClient.Authorizer = r.azureAuthorizer
+	r.decorateAzureAutoRest(&vmssVmClient.BaseClient.Client)
 
 	// fetch instances
 	vmInstance, err := vmssVmClient.Get(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, nodeInfo.VMInstanceID, "")
@@ -87,7 +87,7 @@ func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *log.Entry, nodeInfo k8s
 	var err error
 
 	client := compute.NewVirtualMachinesClientWithBaseURI(r.azureEnvironment.ResourceManagerEndpoint, nodeInfo.Subscription)
-	client.Authorizer = r.azureAuthorizer
+	r.decorateAzureAutoRest(&client.BaseClient.Client)
 
 	// fetch instances
 	vmInstance, err := client.Get(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMname, "")
@@ -132,10 +132,10 @@ func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, no
 	var err error
 
 	vmssClient := compute.NewVirtualMachineScaleSetsClientWithBaseURI(r.azureEnvironment.ResourceManagerEndpoint, nodeInfo.Subscription)
-	vmssClient.Authorizer = r.azureAuthorizer
+	r.decorateAzureAutoRest(&vmssClient.BaseClient.Client)
 
 	vmssVmClient := compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(r.azureEnvironment.ResourceManagerEndpoint, nodeInfo.Subscription)
-	vmssVmClient.Authorizer = r.azureAuthorizer
+	r.decorateAzureAutoRest(&vmssVmClient.BaseClient.Client)
 
 	// fetch instances
 	vmInstance, err := vmssVmClient.Get(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, nodeInfo.VMInstanceID, "")

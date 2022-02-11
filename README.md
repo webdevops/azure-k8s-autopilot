@@ -1,9 +1,9 @@
-Azurer Kubernetes Autopilot
-============================
+# Azure Kubernetes Autopilot
 
 [![license](https://img.shields.io/github/license/webdevops/azure-k8s-autopilot.svg)](https://github.com/webdevops/azure-k8s-autopilot/blob/master/LICENSE)
 [![DockerHub](https://img.shields.io/badge/DockerHub-webdevops%2Fazure--k8s--autopilot-blue)](https://hub.docker.com/r/webdevops/azure-k8s-autopilot/)
 [![Quay.io](https://img.shields.io/badge/Quay.io-webdevops%2Fazure--k8s--autopilot-blue)](https://quay.io/repository/webdevops/azure-k8s-autopilot)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/azure-k8s-autopilot)](https://artifacthub.io/packages/search?repo=azure-k8s-autopilot)
 
 Kubernetess service for automatic maintenance of an Azure cluster.
 
@@ -16,8 +16,7 @@ Supports [shoutrrr](https://containrrr.github.io/shoutrrr/) notifications.
 
 (Successor of `azure-k8s-autorepair`)
 
-Configuration
--------------
+## Configuration
 
 ```
 Usage:
@@ -134,8 +133,7 @@ for Azure API authentication (using ENV vars) see https://docs.microsoft.com/en-
 
 for Kubernetes ServiceAccont is discoverd automatically (or you can use env path `KUBECONFIG` to specify path to your kubeconfig file)
 
-Metrics
--------
+## Metrics
 
  (see `:8080/metrics`)
 
@@ -146,3 +144,22 @@ Metrics
 | `autopilot_repair_duration`    | Duration of repair task                         |
 | `autopilot_update_count`       | Count of update actions                         |
 | `autopilot_update_duration`    | Duration of last exec                           |
+
+### Azuretracing metrics
+
+(with 22.2.0 and later)
+
+Azuretracing metrics collects latency and latency from azure-sdk-for-go and creates metrics and is controllable using
+environment variables (eg. setting buckets, disabling metrics or disable autoreset).
+
+| Metric                                   | Description                                                                            |
+|------------------------------------------|----------------------------------------------------------------------------------------|
+| `azurerm_api_ratelimit`                  | Azure ratelimit metrics (only on /metrics, resets after query due to limited validity) |
+| `azurerm_api_request_*`                  | Azure request count and latency as histogram                                           |
+
+| Environment variable                     | Example                          | Description                                              |
+|------------------------------------------|----------------------------------|----------------------------------------------------------|
+| `METRIC_AZURERM_API_REQUEST_BUCKETS`     | `1, 2.5, 5, 10, 30, 60, 90, 120` | Sets buckets for `azurerm_api_request` histogram metric  |
+| `METRIC_AZURERM_API_REQUEST_DISABLE`     | `false`                          | Disables `azurerm_api_request_*` metric                  |
+| `METRIC_AZURERM_API_RATELIMIT_DISABLE`   | `false`                          | Disables `azurerm_api_ratelimit` metric                  |
+| `METRIC_AZURERM_API_RATELIMIT_AUTORESET` | `false`                          | Disables `azurerm_api_ratelimit` autoreset after fetch   |

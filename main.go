@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/webdevopos/azure-k8s-autopilot/autopilot"
 	"github.com/webdevopos/azure-k8s-autopilot/config"
+	"github.com/webdevops/go-prometheus-common/azuretracing"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,6 +19,8 @@ import (
 
 const (
 	Author = "webdevops.io"
+
+	UserAgent = "azure-k8s-autopilot/"
 )
 
 var (
@@ -37,7 +40,8 @@ func main() {
 	log.Info(string(opts.GetJson()))
 
 	pilot := autopilot.AzureK8sAutopilot{
-		Config: opts,
+		Config:    opts,
+		UserAgent: UserAgent + gitTag,
 	}
 	pilot.Init()
 	pilot.Start()
@@ -115,7 +119,8 @@ func startHttpServer() {
 		}
 	})
 
-	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/metrics", azuretracing.RegisterAzureMetricAutoClean(promhttp.Handler()))
+
 	go func() {
 		log.Fatal(http.ListenAndServe(opts.ServerBind, nil))
 	}()

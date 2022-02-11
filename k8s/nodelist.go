@@ -8,6 +8,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
+	"github.com/webdevops/go-prometheus-common/azuretracing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -25,6 +26,8 @@ type (
 
 		AzureAuthorizer  autorest.Authorizer
 		AzureEnvironment azure.Environment
+
+		UserAgent string
 
 		nodeWatcher watch.Interface
 		azureCache  *cache.Cache
@@ -188,7 +191,7 @@ func (n *NodeList) refreshAzureVmssCache() error {
 		})
 
 		vmssVmClient := compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(n.AzureEnvironment.ResourceManagerEndpoint, vmssInfo.Subscription)
-		vmssVmClient.Authorizer = n.AzureAuthorizer
+		n.decorateAzureAutoRest(&vmssVmClient.BaseClient.Client)
 
 		vmssInstanceList, err := vmssVmClient.List(n.ctx, vmssInfo.ResourceGroup, vmssInfo.VMScaleSetName, "", "", "")
 		if err != nil {
@@ -248,4 +251,13 @@ func (n *NodeList) GetAzureVmssList() (vmssList map[string]*NodeInfo, err error)
 	}
 
 	return
+}
+
+func (n *NodeList) decorateAzureAutoRest(client *autorest.Client) {
+	client.Authorizer = n.AzureAuthorizer
+	if err := client.AddToUserAgent(n.UserAgent); err != nil {
+		log.Panic(err)
+	}
+
+	azuretracing.DecoreAzureAutoRest(client)
 }
