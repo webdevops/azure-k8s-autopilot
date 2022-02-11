@@ -62,7 +62,7 @@ func (k *Kubectl) exec(args ...string) error {
 		args = append(args, "--dry-run")
 	}
 
-	return k.runComand(exec.Command(k.Conf.KubectlPath, args...))
+	return k.runComand(exec.Command(k.Conf.KubectlPath, args...)) //#nosec G204
 }
 
 func (k *Kubectl) runComand(cmd *exec.Cmd) (err error) {

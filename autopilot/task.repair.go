@@ -65,7 +65,9 @@ func (r *AzureK8sAutopilot) repairRun(contextLogger *log.Entry) {
 
 			if r.DryRun {
 				nodeContextLogger.Infof("node %s repair skipped, dry run", node.Name)
-				r.repair.nodeLock.Add(node.Name, true, r.Config.Repair.LockDuration) //nolint:golint,errcheck
+				if err := r.repair.nodeLock.Add(node.Name, true, r.Config.Repair.LockDuration); err != nil {
+					nodeContextLogger.Error(err)
+				}
 				continue
 			}
 
@@ -88,14 +90,19 @@ func (r *AzureK8sAutopilot) repairRun(contextLogger *log.Entry) {
 			if err != nil {
 				r.prometheus.general.errors.WithLabelValues("azure").Inc()
 				nodeContextLogger.Errorf("node %s repair failed: %s", node.Name, err.Error())
-				r.repair.nodeLock.Add(node.Name, true, r.Config.Repair.LockDurationError) //nolint:golint,errcheck
+				// lock vm for next redeploy, can take up to 15 mins
+				if err := r.repair.nodeLock.Add(node.Name, true, r.Config.Repair.LockDurationError); err != nil {
+					nodeContextLogger.Error(err)
+				}
 				if k8sErr := node.AnnotationLockSet(r.Config.Repair.NodeLockAnnotation, r.Config.Repair.LockDurationError, r.Config.Autoscaler.ScaledownLockTime); k8sErr != nil {
 					nodeContextLogger.Error(k8sErr)
 				}
 				continue
 			} else {
 				// lock vm for next redeploy, can take up to 15 mins
-				r.repair.nodeLock.Add(node.Name, true, r.Config.Repair.LockDuration) //nolint:golint,errcheck
+				if err := r.repair.nodeLock.Add(node.Name, true, r.Config.Repair.LockDuration); err != nil {
+					nodeContextLogger.Error(err)
+				}
 				if k8sErr := node.AnnotationLockSet(r.Config.Repair.NodeLockAnnotation, r.Config.Repair.LockDuration, r.Config.Autoscaler.ScaledownLockTime); k8sErr != nil {
 					nodeContextLogger.Error(k8sErr)
 				}

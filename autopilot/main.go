@@ -425,7 +425,10 @@ func (r *AzureK8sAutopilot) syncNodeLockCache(contextLogger *log.Entry, nodeList
 
 			// add to lock cache
 			contextLogger.Debugf("found existing lock \"%s\" for node %s, duration: %s", annotationName, node.Name, lockDuration.String())
-			cacheLock.Add(node.Name, true, *lockDuration) //nolint:golint,errcheck
+			// lock vm for next redeploy, can take up to 15 mins
+			if err := cacheLock.Add(node.Name, true, *lockDuration); err != nil {
+				contextLogger.Error(err)
+			}
 		} else {
 			cacheLock.Delete(node.Name)
 		}

@@ -146,7 +146,9 @@ func (r *AzureK8sAutopilot) updateNode(contextLogger *log.Entry, node *k8s.Node,
 }
 
 func (r *AzureK8sAutopilot) updateNodeLock(contextLogger *log.Entry, node *k8s.Node, dur time.Duration) {
-	r.update.nodeLock.Add(node.Name, true, dur) //nolint:golint,errcheck
+	if err := r.update.nodeLock.Add(node.Name, true, dur); err != nil {
+		contextLogger.Error(err)
+	}
 	if k8sErr := node.AnnotationLockSet(r.Config.Update.NodeLockAnnotation, dur, r.Config.Autoscaler.ScaledownLockTime); k8sErr != nil {
 		contextLogger.Error(k8sErr)
 	}

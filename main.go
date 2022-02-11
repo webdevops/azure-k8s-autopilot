@@ -49,7 +49,7 @@ func main() {
 	log.Infof("starting http server on %s", opts.ServerBind)
 	startHttpServer()
 
-	termChan := make(chan os.Signal)
+	termChan := make(chan os.Signal, 1)
 	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM) //nolint:staticcheck
 	<-termChan
 	log.Info("shutdown signal received, trying to stop")
