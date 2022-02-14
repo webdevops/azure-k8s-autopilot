@@ -13,7 +13,7 @@ require (
 	github.com/prometheus/client_golang v1.12.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/sirupsen/logrus v1.8.1
-	github.com/webdevops/go-prometheus-common v0.0.0-20220211101814-4c9913788fe1
+	github.com/webdevops/go-prometheus-common v0.0.0-20220214222004-cea8f38b44b7
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
 	k8s.io/api v0.23.0
 	k8s.io/apimachinery v0.23.0
