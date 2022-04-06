@@ -1,10 +1,11 @@
-PROJECT_NAME		:= azure-k8s-autopilot
+PROJECT_NAME		:= $(shell basename $(CURDIR))
 GIT_TAG				:= $(shell git describe --dirty --tags --always)
 GIT_COMMIT			:= $(shell git rev-parse --short HEAD)
 LDFLAGS				:= -X "main.gitTag=$(GIT_TAG)" -X "main.gitCommit=$(GIT_COMMIT)" -linkmode external -extldflags "-static" -s -w
 
 FIRST_GOPATH			:= $(firstword $(subst :, ,$(shell go env GOPATH)))
 GOLANGCI_LINT_BIN		:= $(FIRST_GOPATH)/bin/golangci-lint
+GOSEC_BIN				:= $(FIRST_GOPATH)/bin/gosec
 
 .PHONY: all
 all: build
@@ -30,15 +31,6 @@ image: build
 build-push-development:
 	docker build -t webdevops/$(PROJECT_NAME):development . && docker push webdevops/$(PROJECT_NAME):development
 
-.PHONY: recreate-go-mod
-recreate-go-mod:
-	rm -f go.mod go.sum
-	GO111MODULE=on go mod init github.com/webdevopos/azure-k8s-autopilot
-	GO111MODULE=on go get k8s.io/client-go@v0.23.0
-	GO111MODULE=on go get -u github.com/Azure/azure-sdk-for-go/...
-	GO111MODULE=on go get
-	GO111MODULE=on go mod vendor
-
 .PHONY: test
 test:
 	go test ./...
@@ -46,6 +38,9 @@ test:
 .PHONY: dependencies
 dependencies:
 	go mod vendor
+
+.PHONY: check-release
+check-release: vendor lint gosec test
 
 .PHONY: lint
 lint: $(GOLANGCI_LINT_BIN)
@@ -56,7 +51,16 @@ gosec: $(GOSEC_BIN)
 	$(GOSEC_BIN) ./...
 
 $(GOLANGCI_LINT_BIN):
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(FIRST_GOPATH)/bin
 
 $(GOSEC_BIN):
-	curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b $(FIRST_GOPATH)/bin v2.7.0
+	curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b $(FIRST_GOPATH)/bin
+
+.PHONY: recreate-go-mod
+recreate-go-mod:
+	rm -f go.mod go.sum
+	GO111MODULE=on go mod init github.com/webdevopos/azure-k8s-autopilot
+	GO111MODULE=on go get k8s.io/client-go@v0.23.0
+	GO111MODULE=on go get -u github.com/Azure/azure-sdk-for-go/...
+	GO111MODULE=on go get
+	GO111MODULE=on go mod vendor
