@@ -2,6 +2,11 @@ package autopilot
 
 import (
 	"fmt"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
@@ -11,9 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	cron "github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
-	"github.com/webdevopos/azure-k8s-autopilot/config"
-	"github.com/webdevopos/azure-k8s-autopilot/k8s"
-	"github.com/webdevops/go-prometheus-common/azuretracing"
+	"github.com/webdevops/go-common/prometheus/azuretracing"
 	"golang.org/x/net/context"
 	"k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,10 +24,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
-	"strings"
-	"sync"
-	"time"
+
+	"github.com/webdevopos/azure-k8s-autopilot/config"
+	"github.com/webdevopos/azure-k8s-autopilot/k8s"
 )
 
 type (

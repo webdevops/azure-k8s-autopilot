@@ -2,12 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/jessevdk/go-flags"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
-	"github.com/webdevopos/azure-k8s-autopilot/autopilot"
-	"github.com/webdevopos/azure-k8s-autopilot/config"
-	"github.com/webdevops/go-prometheus-common/azuretracing"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,6 +9,14 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+
+	"github.com/jessevdk/go-flags"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
+	"github.com/webdevops/go-common/prometheus/azuretracing"
+
+	"github.com/webdevopos/azure-k8s-autopilot/autopilot"
+	"github.com/webdevopos/azure-k8s-autopilot/config"
 )
 
 const (
