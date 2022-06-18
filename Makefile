@@ -1,7 +1,7 @@
 PROJECT_NAME		:= $(shell basename $(CURDIR))
 GIT_TAG				:= $(shell git describe --dirty --tags --always)
 GIT_COMMIT			:= $(shell git rev-parse --short HEAD)
-LDFLAGS				:= -X "main.gitTag=$(GIT_TAG)" -X "main.gitCommit=$(GIT_COMMIT)" -linkmode external -extldflags "-static" -s -w
+LDFLAGS				:= -X "main.gitTag=$(GIT_TAG)" -X "main.gitCommit=$(GIT_COMMIT)" -extldflags "-static" -s -w
 
 FIRST_GOPATH			:= $(firstword $(subst :, ,$(shell go env GOPATH)))
 GOLANGCI_LINT_BIN		:= $(FIRST_GOPATH)/bin/golangci-lint
@@ -16,7 +16,7 @@ clean:
 
 .PHONY: build
 build:
-	CGO_ENABLED=0 go build -a -ldflags '$(LDFLAGS)' -o $(PROJECT_NAME) .
+	GOOS=${GOOS} GOARCH=${GOARCH} CGO_ENABLED=0 go build -a -ldflags '$(LDFLAGS)' -o $(PROJECT_NAME) .
 
 .PHONY: vendor
 vendor:
@@ -29,7 +29,8 @@ image: build
 	docker build -t $(PROJECT_NAME):$(GIT_TAG) .
 
 build-push-development:
-	docker build -t webdevops/$(PROJECT_NAME):development . && docker push webdevops/$(PROJECT_NAME):development
+	docker buildx create --use
+	docker buildx build -t webdevops/$(PROJECT_NAME):development --platform linux/amd64,linux/arm,linux/arm64 --push .
 
 .PHONY: test
 test:
@@ -55,12 +56,3 @@ $(GOLANGCI_LINT_BIN):
 
 $(GOSEC_BIN):
 	curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b $(FIRST_GOPATH)/bin
-
-.PHONY: recreate-go-mod
-recreate-go-mod:
-	rm -f go.mod go.sum
-	GO111MODULE=on go mod init github.com/webdevopos/azure-k8s-autopilot
-	GO111MODULE=on go get k8s.io/client-go@v0.23.0
-	GO111MODULE=on go get -u github.com/Azure/azure-sdk-for-go/...
-	GO111MODULE=on go get
-	GO111MODULE=on go mod vendor
