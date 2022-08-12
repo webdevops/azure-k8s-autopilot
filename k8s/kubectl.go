@@ -2,9 +2,10 @@ package k8s
 
 import (
 	"fmt"
+	"os/exec"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/webdevopos/azure-k8s-autopilot/config"
-	"os/exec"
 )
 
 type (
@@ -47,6 +48,10 @@ func (k *Kubectl) NodeDrain() error {
 
 	if k.Conf.PodSelector != "" {
 		kubectlDrainOpts = append(kubectlDrainOpts, fmt.Sprintf("--pod-selector=%v", k.Conf.PodSelector))
+	}
+
+	if k.Conf.DisableEviction {
+		kubectlDrainOpts = append(kubectlDrainOpts, "--disable-eviction=true")
 	}
 
 	return k.exec(kubectlDrainOpts...)
