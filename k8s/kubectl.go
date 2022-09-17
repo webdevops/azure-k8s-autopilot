@@ -5,6 +5,7 @@ import (
 	"os/exec"
 
 	log "github.com/sirupsen/logrus"
+
 	"github.com/webdevopos/azure-k8s-autopilot/config"
 )
 

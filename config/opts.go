@@ -82,7 +82,12 @@ type (
 		Notification []string `long:"notification" env:"NOTIFICATION" description:"Shoutrrr url for notifications (https://containrrr.github.io/shoutrrr/)" env-delim:" " json:"-"`
 
 		// server settings
-		ServerBind string `long:"bind" env:"SERVER_BIND"  description:"Server address"  default:":8080"`
+		Server struct {
+			// general options
+			Bind         string        `long:"server.bind"              env:"SERVER_BIND"           description:"Server address"        default:":8080"`
+			ReadTimeout  time.Duration `long:"server.timeout.read"      env:"SERVER_TIMEOUT_READ"   description:"Server read timeout"   default:"5s"`
+			WriteTimeout time.Duration `long:"server.timeout.write"     env:"SERVER_TIMEOUT_WRITE"  description:"Server write timeout"  default:"10s"`
+		}
 	}
 
 	OptsDrain struct {

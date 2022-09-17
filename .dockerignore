@@ -1,3 +1,4 @@
 /vendor/
 /azure-k8s-autopilot
+/release-assets
 /*.exe
