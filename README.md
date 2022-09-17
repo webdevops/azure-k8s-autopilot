@@ -100,11 +100,16 @@ Application Options:
       --drain.ignore-daemonsets                                    Ignore DaemonSet-managed pods. [$DRAIN_IGNORE_DAEMONSETS]
       --drain.pod-selector=                                        Label selector to filter pods on the node
                                                                    [$DRAIN_POD_SELECTOR]
-      --drain.timeout=                                             The length of time to wait before giving up, zero means
-                                                                   infinite (default: 0s) [$DRAIN_TIMEOUT]
-      --drain.wait-after=                                          Wait after drain to let Kubernetes detach volumes etc
-                                                                   (default: 30s) [$DRAIN_WAIT_AFTER]
-      --drain.dry-run                                              Do not drain, uncordon or label any node [$DRAIN_DRY_RUN]
+      --drain.timeout=                                             The length of time to wait before giving up, zero
+                                                                   means infinite (default: 0s) [$DRAIN_TIMEOUT]
+      --drain.wait-after=                                          Wait after drain to let Kubernetes detach volumes
+                                                                   etc (default: 30s) [$DRAIN_WAIT_AFTER]
+      --drain.dry-run                                              Do not drain, uncordon or label any node
+                                                                   [$DRAIN_DRY_RUN]
+      --drain.disable-eviction                                     Force drain to use delete, even if eviction is
+                                                                   supported. This will bypass checking
+                                                                   PodDisruptionBudgets, use with caution.
+                                                                   [$DRAIN_DISABLE_EVICTION]
       --notification=                                              Shoutrrr url for notifications
                                                                    (https://containrrr.github.io/shoutrrr/) [$NOTIFICATION]
       --server.bind=                                               Server address (default: :8080) [$SERVER_BIND]

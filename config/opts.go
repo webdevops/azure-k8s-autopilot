@@ -101,6 +101,7 @@ type (
 		Timeout            time.Duration `long:"drain.timeout"               env:"DRAIN_TIMEOUT"               description:"The length of time to wait before giving up, zero means infinite" default:"0s"`
 		WaitAfter          time.Duration `long:"drain.wait-after"            env:"DRAIN_WAIT_AFTER"            description:"Wait after drain to let Kubernetes detach volumes etc"   default:"30s"`
 		DryRun             bool          `long:"drain.dry-run"               env:"DRAIN_DRY_RUN"               description:"Do not drain, uncordon or label any node"`
+		DisableEviction    bool          `long:"drain.disable-eviction"      env:"DRAIN_DISABLE_EVICTION"      description:"Force drain to use delete, even if eviction is supported. This will bypass checking PodDisruptionBudgets, use with caution."`
 	}
 )
 

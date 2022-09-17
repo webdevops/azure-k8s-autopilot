@@ -51,6 +51,10 @@ func (k *Kubectl) NodeDrain() error {
 		kubectlDrainOpts = append(kubectlDrainOpts, fmt.Sprintf("--pod-selector=%v", k.Conf.PodSelector))
 	}
 
+	if k.Conf.DisableEviction {
+		kubectlDrainOpts = append(kubectlDrainOpts, "--disable-eviction=true")
+	}
+
 	return k.exec(kubectlDrainOpts...)
 }
 
