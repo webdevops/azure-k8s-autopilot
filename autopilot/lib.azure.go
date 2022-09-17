@@ -2,10 +2,12 @@ package autopilot
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
 	log "github.com/sirupsen/logrus"
+
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
-	"strings"
 )
 
 // trigger VMSS repair task
@@ -152,7 +154,7 @@ func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, no
 
 	// drain node
 	if err := r.k8sDrainNode(contextLogger, node); err != nil {
-		return fmt.Errorf("node %s failed to drain: %v", node.Name, err)
+		return fmt.Errorf("node %s failed to drain: %w", node.Name, err)
 	}
 
 	// trigger update call

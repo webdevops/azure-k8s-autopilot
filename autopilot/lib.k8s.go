@@ -1,9 +1,11 @@
 package autopilot
 
 import (
-	log "github.com/sirupsen/logrus"
-	"github.com/webdevopos/azure-k8s-autopilot/k8s"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+
+	"github.com/webdevopos/azure-k8s-autopilot/k8s"
 )
 
 // trigger drain node

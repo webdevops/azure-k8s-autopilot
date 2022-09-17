@@ -2,9 +2,11 @@ package k8s
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"github.com/webdevopos/azure-k8s-autopilot/config"
 	"os/exec"
+
+	log "github.com/sirupsen/logrus"
+
+	"github.com/webdevopos/azure-k8s-autopilot/config"
 )
 
 type (

@@ -2,17 +2,19 @@ package autopilot
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
 	log "github.com/sirupsen/logrus"
+
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
-	"time"
 )
 
 func (r *AzureK8sAutopilot) updateRun(contextLogger *log.Entry) {
 	r.nodeList.Cleanup()
 	nodeList, err := r.nodeList.NodeListWithAzure()
 	if err != nil {
-		contextLogger.Errorf("unable to fetch K8s Node list: %v", err.Error())
+		contextLogger.Errorf("unable to fetch K8s Node list: %s", err.Error())
 		return
 	}
 
@@ -129,11 +131,11 @@ func (r *AzureK8sAutopilot) updateNode(contextLogger *log.Entry, node *k8s.Node,
 	err := r.azureVmssInstanceUpdate(contextLogger, node, *nodeInfo, doReimage)
 	if err != nil {
 		r.prometheus.general.errors.WithLabelValues("azure").Inc()
-		return fmt.Errorf("node upgrade failed: %s", err.Error())
+		return fmt.Errorf("node upgrade failed: %w", err)
 	} else {
 		// uncordon node
 		if err := r.k8sUncordonNode(contextLogger, node); err != nil {
-			return fmt.Errorf("node failed to uncordon: %v", err)
+			return fmt.Errorf("node failed to uncordon: %w", err)
 		}
 		contextLogger.Info("node successfully updated")
 
