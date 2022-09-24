@@ -108,6 +108,10 @@ Application Options:
       --drain.disable-eviction                                     Force drain to use delete, even if eviction is supported.
                                                                    This will bypass checking PodDisruptionBudgets, use with
                                                                    caution. [$DRAIN_DISABLE_EVICTION]
+      --drain.retry-without-eviction                               Retry drain without eviction if first drain failed
+                                                                   [$DRAIN_RETRY_WITHOUT_EVICTION]
+      --drain.ignore-failure                                       Ignore failed drain and continue with actions
+                                                                   [$DRAIN_IGNORE_FAILURE]
       --notification=                                              Shoutrrr url for notifications
                                                                    (https://containrrr.github.io/shoutrrr/) [$NOTIFICATION]
       --server.bind=                                               Server address (default: :8080) [$SERVER_BIND]
