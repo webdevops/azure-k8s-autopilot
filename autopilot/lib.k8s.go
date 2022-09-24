@@ -3,8 +3,10 @@ package autopilot
 import (
 	"time"
 
+	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/webdevopos/azure-k8s-autopilot/config"
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
 )
 
@@ -15,18 +17,41 @@ func (r *AzureK8sAutopilot) k8sDrainNode(contextLogger *log.Entry, node *k8s.Nod
 		return nil
 	}
 
-	kubectl := k8s.Kubectl{}
-	kubectl.Conf = r.Config.Drain
-	kubectl.SetNode(node.Name)
-	kubectl.SetLogger(contextLogger)
-	if err := kubectl.NodeDrain(); err != nil {
-		return err
+	var drainOpts config.OptsDrain
+	if copyErr := copier.Copy(&r.Config.Drain, &drainOpts); copyErr != nil {
+		return copyErr
 	}
 
-	contextLogger.Infof("waiting %s after drain of node %s", r.Config.Drain.WaitAfter.String(), node.Name)
-	time.Sleep(r.Config.Drain.WaitAfter)
+	// first drain
+	kubectl := k8s.Kubectl{}
+	kubectl.Conf = drainOpts
+	kubectl.SetNode(node.Name)
+	kubectl.SetLogger(contextLogger)
+	err := kubectl.NodeDrain()
 
-	return nil
+	// retry drain if first one failed
+	if err != nil && r.Config.Drain.RetryWithoutEviction {
+		drainOpts.DisableEviction = true
+
+		kubectl := k8s.Kubectl{}
+		kubectl.Conf = drainOpts
+		kubectl.SetNode(node.Name)
+		kubectl.SetLogger(contextLogger)
+		err = kubectl.NodeDrain()
+	}
+
+	// ignore error
+	if err != nil && r.Config.Drain.IgnoreFailure {
+		contextLogger.Warnf("failed to drain node %s, but ignoring error: %v", node.Name, err.Error())
+		err = nil
+	}
+
+	if err == nil {
+		contextLogger.Infof("waiting %s after drain of node %s", r.Config.Drain.WaitAfter.String(), node.Name)
+		time.Sleep(r.Config.Drain.WaitAfter)
+	}
+
+	return err
 }
 
 // trigger uncordon node

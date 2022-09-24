@@ -8,6 +8,7 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.11
 	github.com/containrrr/shoutrrr v0.6.1
 	github.com/jessevdk/go-flags v1.5.0
+	github.com/jinzhu/copier v0.3.5
 	github.com/operator-framework/operator-lib v0.11.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/prometheus/client_golang v1.13.0
