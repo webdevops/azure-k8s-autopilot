@@ -7,16 +7,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/azure"
-	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/containrrr/shoutrrr"
 	"github.com/operator-framework/operator-lib/leader"
 	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 	cron "github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
-	"github.com/webdevops/go-common/prometheus/azuretracing"
+	"github.com/webdevops/go-common/azuresdk/armclient"
 	"golang.org/x/net/context"
 	"k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,9 +61,8 @@ type (
 			}
 		}
 
-		azureAuthorizer  autorest.Authorizer
-		azureEnvironment azure.Environment
-		k8sClient        *kubernetes.Clientset
+		azureClient *armclient.ArmClient
+		k8sClient   *kubernetes.Clientset
 
 		cache *cache.Cache
 
@@ -95,8 +91,7 @@ func (r *AzureK8sAutopilot) Init() {
 
 	r.nodeList = &k8s.NodeList{
 		NodeLabelSelector: r.Config.K8S.NodeLabelSelector,
-		AzureAuthorizer:   r.azureAuthorizer,
-		AzureEnvironment:  r.azureEnvironment,
+		AzureClient:       r.azureClient,
 		Client:            r.k8sClient,
 		UserAgent:         r.UserAgent,
 	}
@@ -115,37 +110,33 @@ func (r *AzureK8sAutopilot) Init() {
 func (r *AzureK8sAutopilot) initAzure() {
 	var err error
 
-	// setup azure authorizer
-	r.azureAuthorizer, err = auth.NewAuthorizerFromEnvironment()
+	r.azureClient, err = armclient.NewArmClientWithCloudName(*r.Config.Azure.Environment, log.StandardLogger())
 	if err != nil {
-		panic(err)
+		log.Panic(err.Error())
 	}
 
-	r.azureEnvironment, err = azure.EnvironmentFromName(*r.Config.Azure.Environment)
-	if err != nil {
-		log.Panic(err)
-	}
+	r.azureClient.SetUserAgent(r.UserAgent)
 }
 
 func (r *AzureK8sAutopilot) initK8s() {
 	var err error
-	var config *rest.Config
+	var restConfig *rest.Config
 
 	if kubeconfig := os.Getenv("KUBECONFIG"); kubeconfig != "" {
 		// KUBECONFIG
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+		restConfig, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
 			panic(err.Error())
 		}
 	} else {
 		// K8S in cluster
-		config, err = rest.InClusterConfig()
+		restConfig, err = rest.InClusterConfig()
 		if err != nil {
 			panic(err.Error())
 		}
 	}
 
-	r.k8sClient, err = kubernetes.NewForConfig(config)
+	r.k8sClient, err = kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -459,13 +450,4 @@ func (r *AzureK8sAutopilot) autoUncordonExpiredNodes(contextLogger *log.Entry, n
 			}
 		}
 	}
-}
-
-func (r *AzureK8sAutopilot) decorateAzureAutoRest(client *autorest.Client) {
-	client.Authorizer = r.azureAuthorizer
-	if err := client.AddToUserAgent(r.UserAgent); err != nil {
-		log.Panic(err)
-	}
-
-	azuretracing.DecorateAzureAutoRestClient(client)
 }

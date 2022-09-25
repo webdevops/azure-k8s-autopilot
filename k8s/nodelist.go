@@ -8,11 +8,10 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
-	"github.com/webdevops/go-common/prometheus/azuretracing"
+	"github.com/webdevops/go-common/azuresdk/armclient"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -25,8 +24,7 @@ type (
 		Client            *kubernetes.Clientset
 		AzureCacheTimeout *time.Duration
 
-		AzureAuthorizer  autorest.Authorizer
-		AzureEnvironment azure.Environment
+		AzureClient *armclient.ArmClient
 
 		UserAgent string
 
@@ -185,30 +183,29 @@ func (n *NodeList) refreshAzureVmssCache() error {
 	}
 
 	for _, vmssInfo := range vmssList {
-		vmssContextLogger := log.WithFields(log.Fields{
-			"subscription":  vmssInfo.Subscription,
-			"resourceGroup": vmssInfo.ResourceGroup,
-			"vmss":          vmssInfo.VMScaleSetName,
-		})
-
-		vmssVmClient := compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(n.AzureEnvironment.ResourceManagerEndpoint, vmssInfo.Subscription)
-		n.decorateAzureAutoRest(&vmssVmClient.BaseClient.Client)
-
-		vmssInstanceList, err := vmssVmClient.List(n.ctx, vmssInfo.ResourceGroup, vmssInfo.VMScaleSetName, "", "", "")
+		vmssVmClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(vmssInfo.Subscription, n.AzureClient.GetCred(), n.AzureClient.NewArmClientOptions())
 		if err != nil {
-			vmssContextLogger.Error(err)
-			continue
+			return err
 		}
 
-		for _, vmssInstance := range vmssInstanceList.Values() {
-			k8sProviderId := fmt.Sprintf(
-				"azure://%s",
-				strings.ToLower(*vmssInstance.ID),
-			)
+		pager := vmssVmClient.NewListPager(vmssInfo.ResourceGroup, vmssInfo.VMScaleSetName, nil)
 
-			n.azureCache.Delete(k8sProviderId)
-			if err := n.azureCache.Add(k8sProviderId, vmssInstance, *n.AzureCacheTimeout); err != nil {
-				log.Error(err)
+		for pager.More() {
+			result, err := pager.NextPage(n.ctx)
+			if err != nil {
+				return err
+			}
+
+			for _, vmssInstance := range result.Value {
+				k8sProviderId := fmt.Sprintf(
+					"azure://%s",
+					strings.ToLower(*vmssInstance.ID),
+				)
+
+				n.azureCache.Delete(k8sProviderId)
+				if err := n.azureCache.Add(k8sProviderId, vmssInstance, *n.AzureCacheTimeout); err != nil {
+					log.Error(err)
+				}
 			}
 		}
 	}
@@ -232,7 +229,7 @@ func (n *NodeList) GetAzureVmssList() (vmssList map[string]*NodeInfo, err error)
 
 	for _, node := range n.NodeList() {
 		if node.IsAzureProvider() {
-			// parse node informations from provider ID
+			// parse node information from provider ID
 			nodeInfo, parseErr := ExtractNodeInfo(node)
 			if parseErr != nil {
 				err = parseErr
@@ -252,13 +249,4 @@ func (n *NodeList) GetAzureVmssList() (vmssList map[string]*NodeInfo, err error)
 	}
 
 	return
-}
-
-func (n *NodeList) decorateAzureAutoRest(client *autorest.Client) {
-	client.Authorizer = n.AzureAuthorizer
-	if err := client.AddToUserAgent(n.UserAgent); err != nil {
-		log.Panic(err)
-	}
-
-	azuretracing.DecorateAzureAutoRestClient(client)
 }

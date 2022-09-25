@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
@@ -12,28 +12,24 @@ import (
 
 // trigger VMSS repair task
 func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *log.Entry, nodeInfo k8s.NodeInfo) error {
-	vmssInstanceIds := compute.VirtualMachineScaleSetVMInstanceIDs{
-		InstanceIds: &[]string{nodeInfo.VMInstanceID},
+	vmssClient, err := armcompute.NewVirtualMachineScaleSetsClient(nodeInfo.Subscription, r.azureClient.GetCred(), r.azureClient.NewArmClientOptions())
+	if err != nil {
+		return err
 	}
 
-	vmssInstanceReimage := compute.VirtualMachineScaleSetReimageParameters{
-		InstanceIds: &[]string{nodeInfo.VMInstanceID},
+	vmssVmClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(nodeInfo.Subscription, r.azureClient.GetCred(), r.azureClient.NewArmClientOptions())
+	if err != nil {
+		return err
 	}
-
-	vmssClient := compute.NewVirtualMachineScaleSetsClientWithBaseURI(r.azureEnvironment.ResourceManagerEndpoint, nodeInfo.Subscription)
-	r.decorateAzureAutoRest(&vmssClient.BaseClient.Client)
-
-	vmssVmClient := compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(r.azureEnvironment.ResourceManagerEndpoint, nodeInfo.Subscription)
-	r.decorateAzureAutoRest(&vmssVmClient.BaseClient.Client)
 
 	// fetch instances
-	vmInstance, err := vmssVmClient.Get(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, nodeInfo.VMInstanceID, "")
+	vmInstance, err := vmssVmClient.Get(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, nodeInfo.VMInstanceID, nil)
 	if err != nil {
 		return err
 	}
 
 	// checking vm provision state
-	if err := r.checkVmProvisionState(vmInstance.ProvisioningState); err != nil {
+	if err := r.checkVmProvisionState(vmInstance.Properties.ProvisioningState); err != nil {
 		return err
 	}
 
@@ -43,37 +39,53 @@ func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *log.Entry, no
 	// trigger repair
 	switch r.Config.Repair.AzureVmssAction {
 	case "restart":
-		if future, err := vmssClient.Restart(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceIds); err == nil {
-			if futureErr := future.WaitForCompletionRef(r.ctx, vmssClient.Client); futureErr != nil {
-				return err
+		restartOpts := armcompute.VirtualMachineScaleSetsClientBeginRestartOptions{
+			VMInstanceIDs: &armcompute.VirtualMachineScaleSetVMInstanceIDs{
+				InstanceIDs: []*string{&nodeInfo.VMInstanceID},
+			},
+		}
+		if future, err := vmssClient.BeginRestart(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &restartOpts); err == nil {
+			if _, futureErr := future.PollUntilDone(r.ctx, nil); futureErr != nil {
+				return futureErr
 			}
 		} else {
 			return err
 		}
 	case "redeploy":
-		if future, err := vmssClient.Redeploy(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceIds); err == nil {
-			if futureErr := future.WaitForCompletionRef(r.ctx, vmssClient.Client); futureErr != nil {
-				return err
+		redeployOpts := armcompute.VirtualMachineScaleSetsClientBeginRedeployOptions{
+			VMInstanceIDs: &armcompute.VirtualMachineScaleSetVMInstanceIDs{
+				InstanceIDs: []*string{&nodeInfo.VMInstanceID},
+			},
+		}
+		if future, err := vmssClient.BeginRedeploy(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &redeployOpts); err == nil {
+			if _, futureErr := future.PollUntilDone(r.ctx, nil); futureErr != nil {
+				return futureErr
 			}
 		} else {
 			return err
 		}
 	case "reimage":
-		if future, err := vmssClient.Reimage(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceReimage); err == nil {
-			if futureErr := future.WaitForCompletionRef(r.ctx, vmssClient.Client); futureErr != nil {
-				return err
+		reimageOpts := armcompute.VirtualMachineScaleSetsClientBeginReimageOptions{
+			VMScaleSetReimageInput: &armcompute.VirtualMachineScaleSetReimageParameters{
+				InstanceIDs: []*string{&nodeInfo.VMInstanceID},
+			},
+		}
+		if future, err := vmssClient.BeginReimage(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &reimageOpts); err == nil {
+			if _, futureErr := future.PollUntilDone(r.ctx, nil); futureErr != nil {
+				return futureErr
 			}
 		} else {
 			return err
 		}
 	case "delete":
-		vmssInstanceIdsDelete := compute.VirtualMachineScaleSetVMInstanceRequiredIDs{
-			InstanceIds: &[]string{nodeInfo.VMInstanceID},
+		deleteOpts := armcompute.VirtualMachineScaleSetsClientBeginDeleteInstancesOptions{}
+		vmssInstanceIdsDelete := armcompute.VirtualMachineScaleSetVMInstanceRequiredIDs{
+			InstanceIDs: []*string{&nodeInfo.VMInstanceID},
 		}
-		forceDelete := false
-		if future, err := vmssClient.DeleteInstances(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, vmssInstanceIdsDelete, &forceDelete); err == nil {
-			if futureErr := future.WaitForCompletionRef(r.ctx, vmssClient.Client); futureErr != nil {
-				return err
+
+		if future, err := vmssClient.BeginDeleteInstances(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, vmssInstanceIdsDelete, &deleteOpts); err == nil {
+			if _, futureErr := future.PollUntilDone(r.ctx, nil); futureErr != nil {
+				return futureErr
 			}
 		} else {
 			return err
@@ -88,17 +100,19 @@ func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *log.Entry, no
 func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *log.Entry, nodeInfo k8s.NodeInfo) error {
 	var err error
 
-	client := compute.NewVirtualMachinesClientWithBaseURI(r.azureEnvironment.ResourceManagerEndpoint, nodeInfo.Subscription)
-	r.decorateAzureAutoRest(&client.BaseClient.Client)
+	client, err := armcompute.NewVirtualMachinesClient(nodeInfo.Subscription, r.azureClient.GetCred(), r.azureClient.NewArmClientOptions())
+	if err != nil {
+		return err
+	}
 
 	// fetch instances
-	vmInstance, err := client.Get(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMname, "")
+	vmInstance, err := client.Get(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMname, nil)
 	if err != nil {
 		return err
 	}
 
 	// checking vm provision state
-	if err := r.checkVmProvisionState(vmInstance.ProvisioningState); err != nil {
+	if err := r.checkVmProvisionState(vmInstance.Properties.ProvisioningState); err != nil {
 		return err
 	}
 
@@ -107,17 +121,17 @@ func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *log.Entry, nodeInfo k8s
 
 	switch r.Config.Repair.AzureVmAction {
 	case "restart":
-		if future, err := client.Restart(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMname); err == nil {
-			if futureErr := future.WaitForCompletionRef(r.ctx, client.Client); futureErr != nil {
-				return err
+		if future, err := client.BeginRestart(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMname, nil); err == nil {
+			if _, futureErr := future.PollUntilDone(r.ctx, nil); futureErr != nil {
+				return futureErr
 			}
 		} else {
 			return err
 		}
 	case "redeploy":
-		if future, err := client.Redeploy(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMname); err == nil {
-			if futureErr := future.WaitForCompletionRef(r.ctx, client.Client); futureErr != nil {
-				return err
+		if future, err := client.BeginRedeploy(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMname, nil); err == nil {
+			if _, futureErr := future.PollUntilDone(r.ctx, nil); futureErr != nil {
+				return futureErr
 			}
 		} else {
 			return err
@@ -133,20 +147,24 @@ func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *log.Entry, nodeInfo k8s
 func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, node *k8s.Node, nodeInfo k8s.NodeInfo, doReimage bool) error {
 	var err error
 
-	vmssClient := compute.NewVirtualMachineScaleSetsClientWithBaseURI(r.azureEnvironment.ResourceManagerEndpoint, nodeInfo.Subscription)
-	r.decorateAzureAutoRest(&vmssClient.BaseClient.Client)
+	vmssClient, err := armcompute.NewVirtualMachineScaleSetsClient(nodeInfo.Subscription, r.azureClient.GetCred(), r.azureClient.NewArmClientOptions())
+	if err != nil {
+		return err
+	}
 
-	vmssVmClient := compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(r.azureEnvironment.ResourceManagerEndpoint, nodeInfo.Subscription)
-	r.decorateAzureAutoRest(&vmssVmClient.BaseClient.Client)
+	vmssVmClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(nodeInfo.Subscription, r.azureClient.GetCred(), r.azureClient.NewArmClientOptions())
+	if err != nil {
+		return err
+	}
 
 	// fetch instances
-	vmInstance, err := vmssVmClient.Get(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, nodeInfo.VMInstanceID, "")
+	vmInstance, err := vmssVmClient.Get(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, nodeInfo.VMInstanceID, nil)
 	if err != nil {
 		return err
 	}
 
 	// checking vm provision state
-	if err := r.checkVmProvisionState(vmInstance.ProvisioningState); err != nil {
+	if err := r.checkVmProvisionState(vmInstance.Properties.ProvisioningState); err != nil {
 		return err
 	}
 
@@ -159,13 +177,13 @@ func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, no
 
 	// trigger update call
 	contextLogger.Info("scheduling Azure VMSS instance update")
-	vmssInstanceUpdateOpts := compute.VirtualMachineScaleSetVMInstanceRequiredIDs{
-		InstanceIds: &[]string{*vmInstance.InstanceID},
+	vmssInstanceUpdateOpts := armcompute.VirtualMachineScaleSetVMInstanceRequiredIDs{
+		InstanceIDs: []*string{vmInstance.InstanceID},
 	}
-	if future, err := vmssClient.UpdateInstances(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, vmssInstanceUpdateOpts); err == nil {
+	if future, err := vmssClient.BeginUpdateInstances(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, vmssInstanceUpdateOpts, nil); err == nil {
 		// wait for update
-		if err := future.WaitForCompletionRef(r.ctx, vmssClient.Client); err != nil {
-			return err
+		if _, futureErr := future.PollUntilDone(r.ctx, nil); futureErr != nil {
+			return futureErr
 		}
 	} else {
 		return err
@@ -174,13 +192,15 @@ func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, no
 	// trigger reimage call
 	if doReimage {
 		contextLogger.Info("scheduling Azure VMSS instance reimage")
-		vmssInstanceReimage := compute.VirtualMachineScaleSetReimageParameters{
-			InstanceIds: &[]string{nodeInfo.VMInstanceID},
+		vmssInstanceReimage := armcompute.VirtualMachineScaleSetsClientBeginRedeployOptions{
+			VMInstanceIDs: &armcompute.VirtualMachineScaleSetVMInstanceIDs{
+				InstanceIDs: []*string{vmInstance.InstanceID},
+			},
 		}
-		if future, err := vmssClient.Reimage(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceReimage); err == nil {
+		if future, err := vmssClient.BeginRedeploy(r.ctx, nodeInfo.ResourceGroup, nodeInfo.VMScaleSetName, &vmssInstanceReimage); err == nil {
 			// wait for update
-			if err := future.WaitForCompletionRef(r.ctx, vmssClient.Client); err != nil {
-				return err
+			if _, futureErr := future.PollUntilDone(r.ctx, nil); futureErr != nil {
+				return futureErr
 			}
 		} else {
 			return err

@@ -7,11 +7,11 @@ import (
 )
 
 var (
-	azureSubscriptionRegexp   = regexp.MustCompile("^azure:///subscriptions/([^/]+)/resourceGroups/.*")
-	azureResourceGroupRegexp  = regexp.MustCompile("^azure:///subscriptions/[^/]+/resourceGroups/([^/]+)/.*")
-	azureVmssNameRegexp       = regexp.MustCompile("/providers/Microsoft.Compute/virtualMachineScaleSets/([^/]+)/.*")
-	azureVmssInstanceIdRegexp = regexp.MustCompile("/providers/Microsoft.Compute/virtualMachineScaleSets/[^/]+/virtualMachines/([^/]+)$")
-	azureVmNameRegexp         = regexp.MustCompile("/providers/Microsoft.Compute/virtualMachines/([^/]+)$")
+	azureSubscriptionRegexp   = regexp.MustCompile(`^(?i)azure:///subscriptions/([^/]+)/resourceGroups/.*`)
+	azureResourceGroupRegexp  = regexp.MustCompile(`^(?i)azure:///subscriptions/[^/]+/resourceGroups/([^/]+)/.*`)
+	azureVmssNameRegexp       = regexp.MustCompile(`(?i)/providers/Microsoft.Compute/virtualMachineScaleSets/([^/]+)/.*`)
+	azureVmssInstanceIdRegexp = regexp.MustCompile(`(?i)/providers/Microsoft.Compute/virtualMachineScaleSets/[^/]+/virtualMachines/([^/]+)$`)
+	azureVmNameRegexp         = regexp.MustCompile(`(?i)/providers/Microsoft.Compute/virtualMachines/([^/]+)$`)
 )
 
 type (
@@ -53,7 +53,7 @@ func ExtractNodeInfo(node *Node) (*NodeInfo, error) {
 		return nil, fmt.Errorf("unable to detect Azure ResourceGroup from Node ProviderId (Azure resource ID): %v", nodeProviderId)
 	}
 
-	if strings.Contains(nodeProviderId, "/Microsoft.Compute/virtualMachineScaleSets/") {
+	if strings.Contains(strings.ToLower(nodeProviderId), "/microsoft.compute/virtualmachinescalesets/") {
 		// Is VMSS
 		info.IsVmss = true
 

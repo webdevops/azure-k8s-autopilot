@@ -14,7 +14,7 @@ import (
 	"github.com/jessevdk/go-flags"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
-	"github.com/webdevops/go-common/prometheus/azuretracing"
+	"github.com/webdevops/go-common/azuresdk/prometheus/tracing"
 
 	"github.com/webdevopos/azure-k8s-autopilot/autopilot"
 	"github.com/webdevopos/azure-k8s-autopilot/config"
@@ -28,13 +28,12 @@ const (
 
 var (
 	argparser *flags.Parser
+	opts      config.Opts
 
 	// Git version information
 	gitCommit = "<unknown>"
 	gitTag    = "<unknown>"
 )
-
-var opts = config.Opts{}
 
 func main() {
 	initArgparser()
@@ -132,7 +131,7 @@ func startHttpServer() {
 		}
 	})
 
-	mux.Handle("/metrics", azuretracing.RegisterAzureMetricAutoClean(promhttp.Handler()))
+	mux.Handle("/metrics", tracing.RegisterAzureMetricAutoClean(promhttp.Handler()))
 
 	go func() {
 		srv := &http.Server{

@@ -40,13 +40,13 @@ func (n *Node) Cleanup() {
 
 // check if node is an Azure node
 func (n *Node) IsAzureProvider() bool {
-	return strings.HasPrefix(n.Spec.ProviderID, "azure://")
+	return strings.HasPrefix(strings.ToLower(n.Spec.ProviderID), "azure://")
 }
 
 // detect if node is ready/healthy
 func (n *Node) GetHealthStatus() (status bool, lastHeartbeat time.Time) {
 	for _, condition := range n.Status.Conditions {
-		if condition.Type == "Ready" && condition.Status == "True" {
+		if strings.EqualFold(string(condition.Type), "Ready") && strings.EqualFold(string(condition.Status), "True") {
 			status = true
 			lastHeartbeat = condition.LastHeartbeatTime.Time
 		} else {
