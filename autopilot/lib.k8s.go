@@ -18,7 +18,7 @@ func (r *AzureK8sAutopilot) k8sDrainNode(contextLogger *log.Entry, node *k8s.Nod
 	}
 
 	var drainOpts config.OptsDrain
-	if copyErr := copier.Copy(&r.Config.Drain, &drainOpts); copyErr != nil {
+	if copyErr := copier.Copy(&drainOpts, &r.Config.Drain); copyErr != nil {
 		return copyErr
 	}
 

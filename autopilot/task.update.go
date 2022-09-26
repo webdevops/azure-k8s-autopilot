@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
@@ -24,7 +24,7 @@ func (r *AzureK8sAutopilot) updateRun(contextLogger *log.Entry) {
 	r.prometheus.general.candidateNodes.WithLabelValues("update").Set(float64(len(candidateList)))
 
 	// sanity checks
-	failedNodeCount := r.nodeList.NodeCountByProvisionState(string(compute.ProvisioningStateFailed))
+	failedNodeCount := r.nodeList.NodeCountByProvisionState(string(armcompute.ExecutionStateFailed))
 	r.prometheus.general.failedNodes.WithLabelValues("provisionState").Set(float64(failedNodeCount))
 	if failedNodeCount >= r.Config.Update.FailedThreshold {
 		contextLogger.Infof("detected %v failed nodes in cluster, threshold of %v reached, update stopped", failedNodeCount, r.Config.Update.FailedThreshold)
@@ -103,7 +103,7 @@ func (r *AzureK8sAutopilot) updateCollectCandiates(contextLogger *log.Entry, nod
 		}
 
 		if node.AzureVmss != nil {
-			if node.AzureVmss.LatestModelApplied != nil && !*node.AzureVmss.LatestModelApplied {
+			if node.AzureVmss.Properties.LatestModelApplied != nil && !*node.AzureVmss.Properties.LatestModelApplied {
 				contextLogger.WithField("node", node.Name).Infof("found updatable node")
 				candidateList = append(candidateList, node)
 			}

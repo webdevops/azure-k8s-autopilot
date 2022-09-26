@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
 	"github.com/webdevops/go-common/azuresdk/armclient"
+	"github.com/webdevops/go-common/utils/to"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -156,12 +156,11 @@ func (n *NodeList) NodeListWithAzure() (list []*Node, err error) {
 	}
 
 	for index, node := range list {
-		if azureResource, exists := n.azureCache.Get(strings.ToLower(node.Spec.ProviderID)); exists {
-			switch v := azureResource.(type) {
-			case compute.VirtualMachineScaleSetVM:
-				node.AzureVmss = &v
-			}
+		providerID := strings.ToLower(node.Spec.ProviderID)
+		if azureResource, exists := n.azureCache.Get(providerID); exists {
+			node.AzureVmss = azureResource.(*armcompute.VirtualMachineScaleSetVM)
 		}
+
 		list[index] = node
 	}
 	return
@@ -197,15 +196,12 @@ func (n *NodeList) refreshAzureVmssCache() error {
 			}
 
 			for _, vmssInstance := range result.Value {
-				k8sProviderId := fmt.Sprintf(
+				providerID := fmt.Sprintf(
 					"azure://%s",
-					strings.ToLower(*vmssInstance.ID),
+					to.StringLower(vmssInstance.ID),
 				)
 
-				n.azureCache.Delete(k8sProviderId)
-				if err := n.azureCache.Add(k8sProviderId, vmssInstance, *n.AzureCacheTimeout); err != nil {
-					log.Error(err)
-				}
+				n.azureCache.SetDefault(providerID, vmssInstance)
 			}
 		}
 	}
@@ -215,8 +211,8 @@ func (n *NodeList) refreshAzureVmssCache() error {
 
 func (n *NodeList) NodeCountByProvisionState(provisionState string) (count int) {
 	for _, node := range n.NodeList() {
-		if node.AzureVmss != nil && node.AzureVmss.ProvisioningState != nil {
-			if *node.AzureVmss.ProvisioningState == provisionState {
+		if node.AzureVmss != nil && node.AzureVmss.Properties.ProvisioningState != nil {
+			if strings.EqualFold(to.String(node.AzureVmss.Properties.ProvisioningState), provisionState) {
 				count++
 			}
 		}

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,7 +24,7 @@ type (
 	Node struct {
 		*v1.Node
 		Client    *kubernetes.Clientset
-		AzureVmss *compute.VirtualMachineScaleSetVM
+		AzureVmss *armcompute.VirtualMachineScaleSetVM
 	}
 )
 
@@ -40,7 +40,8 @@ func (n *Node) Cleanup() {
 
 // check if node is an Azure node
 func (n *Node) IsAzureProvider() bool {
-	return strings.HasPrefix(strings.ToLower(n.Spec.ProviderID), "azure://")
+	providerID := strings.ToLower(n.Spec.ProviderID)
+	return strings.HasPrefix(providerID, "azure://")
 }
 
 // detect if node is ready/healthy
