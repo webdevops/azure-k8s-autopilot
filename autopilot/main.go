@@ -14,6 +14,7 @@ import (
 	cron "github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
 	"github.com/webdevops/go-common/azuresdk/armclient"
+	"github.com/webdevops/go-common/azuresdk/azidentity"
 	"golang.org/x/net/context"
 	"k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -110,12 +111,22 @@ func (r *AzureK8sAutopilot) Init() {
 func (r *AzureK8sAutopilot) initAzure() {
 	var err error
 
-	r.azureClient, err = armclient.NewArmClientWithCloudName(*r.Config.Azure.Environment, log.StandardLogger())
+	if r.Config.Azure.Environment != nil {
+		if err := os.Setenv(azidentity.EnvAzureEnvironment, *r.Config.Azure.Environment); err != nil {
+			log.Warnf(`unable to set envvar "%s": %v`, azidentity.EnvAzureEnvironment, err.Error())
+		}
+	}
+
+	r.azureClient, err = armclient.NewArmClientFromEnvironment(log.StandardLogger())
 	if err != nil {
 		log.Panic(err.Error())
 	}
 
 	r.azureClient.SetUserAgent(r.UserAgent)
+
+	if err := r.azureClient.Connect(); err != nil {
+		log.Panic(err.Error())
+	}
 }
 
 func (r *AzureK8sAutopilot) initK8s() {
