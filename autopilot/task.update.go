@@ -19,7 +19,7 @@ func (r *AzureK8sAutopilot) updateRun(contextLogger *log.Entry) {
 	}
 
 	// find update candidates
-	candidateList := r.updateCollectCandiates(contextLogger, nodeList)
+	candidateList := r.updateCollectCandidates(contextLogger, nodeList)
 	contextLogger.Infof("found %v nodes (%v upgradable)", len(nodeList), len(candidateList))
 	r.prometheus.general.candidateNodes.WithLabelValues("update").Set(float64(len(candidateList)))
 
@@ -74,7 +74,7 @@ func (r *AzureK8sAutopilot) updateRun(contextLogger *log.Entry) {
 	}
 }
 
-func (r *AzureK8sAutopilot) updateCollectCandiates(contextLogger *log.Entry, nodeList []*k8s.Node) (candidateList []*k8s.Node) {
+func (r *AzureK8sAutopilot) updateCollectCandidates(contextLogger *log.Entry, nodeList []*k8s.Node) (candidateList []*k8s.Node) {
 	candidateList = []*k8s.Node{}
 
 	// check if there are ongoing updates (eg. operator was killed while doing updates)
