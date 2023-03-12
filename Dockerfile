@@ -1,7 +1,7 @@
 #############################################
 # Build
 #############################################
-FROM --platform=$BUILDPLATFORM golang:1.19-alpine as build
+FROM --platform=$BUILDPLATFORM golang:1.20-alpine as build
 
 RUN apk upgrade --no-cache --force
 RUN apk add --update build-base make git curl
@@ -32,7 +32,7 @@ WORKDIR /app
 COPY --from=build /go/src/github.com/webdevops/azure-k8s-autopilot/azure-k8s-autopilot .
 COPY --from=build /go/src/github.com/webdevops/azure-k8s-autopilot/kubectl .
 RUN ["./azure-k8s-autopilot", "--help"]
-RUN ["./kubectl", "version", "--client=true"]
+RUN ["./kubectl", "version", "--client=true", "--output=yaml"]
 
 #############################################
 # Final
