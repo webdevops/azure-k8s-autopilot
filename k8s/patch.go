@@ -6,17 +6,17 @@ type (
 	JsonPatch interface{}
 
 	JsonPatchString struct {
-		JsonPatch
-		Op    string `json:"op"`
-		Path  string `json:"path"`
-		Value string `json:"value"`
+		JsonPatch `json:"-"`
+		Op        string `json:"op"`
+		Path      string `json:"path"`
+		Value     string `json:"value"`
 	}
 
 	JsonPatchObject struct {
-		JsonPatch
-		Op    string      `json:"op"`
-		Path  string      `json:"path"`
-		Value interface{} `json:"value"`
+		JsonPatch `json:"-"`
+		Op        string      `json:"op"`
+		Path      string      `json:"path"`
+		Value     interface{} `json:"value"`
 	}
 )
 
