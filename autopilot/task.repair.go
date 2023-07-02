@@ -3,12 +3,12 @@ package autopilot
 import (
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
 )
 
-func (r *AzureK8sAutopilot) repairRun(contextLogger *log.Entry) {
+func (r *AzureK8sAutopilot) repairRun(contextLogger *zap.SugaredLogger) {
 	r.nodeList.Cleanup()
 	nodeList := r.nodeList.NodeList()
 
@@ -17,7 +17,7 @@ func (r *AzureK8sAutopilot) repairRun(contextLogger *log.Entry) {
 	contextLogger.Debugf("found %v nodes in cluster (%v in locked state)", len(nodeList), r.repair.nodeLock.ItemCount())
 
 	for _, node := range nodeList {
-		nodeContextLogger := contextLogger.WithField("node", node.Name)
+		nodeContextLogger := contextLogger.With(zap.String("node", node.Name))
 
 		nodeContextLogger.Debug("checking node")
 		r.prometheus.repair.nodeStatus.WithLabelValues(node.Name).Set(0)

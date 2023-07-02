@@ -9,9 +9,9 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/patrickmn/go-cache"
-	log "github.com/sirupsen/logrus"
 	"github.com/webdevops/go-common/azuresdk/armclient"
 	"github.com/webdevops/go-common/utils/to"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -27,6 +27,8 @@ type (
 		AzureClient *armclient.ArmClient
 
 		UserAgent string
+
+		Logger *zap.SugaredLogger
 
 		nodeWatcher watch.Interface
 		azureCache  *cache.Cache
@@ -52,9 +54,9 @@ func (n *NodeList) Start() {
 				return
 			}
 
-			log.Info("(re)starting node watch")
+			n.Logger.Info("(re)starting node watch")
 			if err := n.startNodeWatch(); err != nil {
-				log.Errorf("node watcher stopped: %v", err)
+				n.Logger.Errorf("node watcher stopped: %v", err)
 			}
 		}
 	}()
@@ -68,7 +70,7 @@ func (n *NodeList) Stop() {
 }
 
 func (n *NodeList) ClearAzureCache() {
-	log.Info("invalidating azure cache")
+	n.Logger.Info("invalidating azure cache")
 	n.azureCache.Flush()
 }
 
@@ -87,7 +89,7 @@ func (n *NodeList) startNodeWatch() error {
 	}
 	nodeWatcher, err := n.Client.CoreV1().Nodes().Watch(n.ctx, watchOpts)
 	if err != nil {
-		log.Panic(err)
+		n.Logger.Panic(err)
 	}
 	n.nodeWatcher = nodeWatcher
 	defer nodeWatcher.Stop()
@@ -122,7 +124,7 @@ func (n *NodeList) startNodeWatch() error {
 			}
 			n.lock.Unlock()
 		case watch.Error:
-			log.Errorf("go watch error event %v", res.Object)
+			n.Logger.Errorf("go watch error event %v", res.Object)
 		}
 	}
 
@@ -132,7 +134,10 @@ func (n *NodeList) startNodeWatch() error {
 func (n *NodeList) Cleanup() {
 	for _, v := range n.NodeList() {
 		node := v
-		node.Cleanup()
+		err := node.Cleanup()
+		if err != nil {
+			n.Logger.Error(err.Error())
+		}
 	}
 }
 
@@ -167,7 +172,7 @@ func (n *NodeList) NodeListWithAzure() (list []*Node, err error) {
 }
 
 func (n *NodeList) refreshAzureCache() error {
-	log.Infof("refresh azure cache")
+	n.Logger.Infof("refresh azure cache")
 	if err := n.refreshAzureVmssCache(); err != nil {
 		return err
 	}

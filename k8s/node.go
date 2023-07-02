@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
-	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,14 +27,16 @@ type (
 	}
 )
 
-func (n *Node) Cleanup() {
+func (n *Node) Cleanup() error {
 	if lockDuration, exists := n.AnnotationLockCheck(ClusterAutoscaleScaleDownExpireAnnotation); exists {
 		if lockDuration == nil || lockDuration.Seconds() <= 0 {
 			if err := n.AnnotationRemove(ClusterAutoscaleScaleDownExpireAnnotation, ClusterAutoscaleScaleDownDisableAnnotation); err != nil {
-				log.Error(err)
+				return err
 			}
 		}
 	}
+
+	return nil
 }
 
 // check if node is an Azure node
@@ -72,6 +73,7 @@ func (n *Node) AnnotationSet(name, value string) (err error) {
 
 	return n.PatchSetApply(patches)
 }
+
 func (n *Node) AnnotationsSet(annotations map[string]string) (err error) {
 	patches := []JsonPatch{}
 

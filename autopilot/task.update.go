@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
 )
 
-func (r *AzureK8sAutopilot) updateRun(contextLogger *log.Entry) {
+func (r *AzureK8sAutopilot) updateRun(contextLogger *zap.SugaredLogger) {
 	r.nodeList.Cleanup()
 	nodeList, err := r.nodeList.NodeListWithAzure()
 	if err != nil {
@@ -51,13 +51,13 @@ func (r *AzureK8sAutopilot) updateRun(contextLogger *log.Entry) {
 				continue
 			}
 
-			nodeLogger := contextLogger.WithFields(log.Fields{
-				"subscription":  nodeInfo.Subscription,
-				"resourceGroup": nodeInfo.ResourceGroup,
-				"vmss":          nodeInfo.VMScaleSetName,
-				"vmssInstance":  nodeInfo.VMInstanceID,
-				"node":          node.Name,
-			})
+			nodeLogger := contextLogger.With(
+				zap.String("subscription", nodeInfo.Subscription),
+				zap.String("resourceGroup", nodeInfo.ResourceGroup),
+				zap.String("vmss", nodeInfo.VMScaleSetName),
+				zap.String("vmssInstance", nodeInfo.VMInstanceID),
+				zap.String("node", node.Name),
+			)
 
 			contextLogger.Infof("starting update of node %v", node.Name)
 			if err := r.updateNode(nodeLogger, node, nodeInfo); err != nil {
@@ -74,7 +74,7 @@ func (r *AzureK8sAutopilot) updateRun(contextLogger *log.Entry) {
 	}
 }
 
-func (r *AzureK8sAutopilot) updateCollectCandidates(contextLogger *log.Entry, nodeList []*k8s.Node) (candidateList []*k8s.Node) {
+func (r *AzureK8sAutopilot) updateCollectCandidates(contextLogger *zap.SugaredLogger, nodeList []*k8s.Node) (candidateList []*k8s.Node) {
 	candidateList = []*k8s.Node{}
 
 	// check if there are ongoing updates (eg. operator was killed while doing updates)
@@ -104,7 +104,7 @@ func (r *AzureK8sAutopilot) updateCollectCandidates(contextLogger *log.Entry, no
 
 		if node.AzureVmss != nil {
 			if node.AzureVmss.Properties.LatestModelApplied != nil && !*node.AzureVmss.Properties.LatestModelApplied {
-				contextLogger.WithField("node", node.Name).Infof("found updatable node")
+				contextLogger.With(zap.String("node", node.Name)).Infof("found updatable node")
 				candidateList = append(candidateList, node)
 			}
 		}
@@ -112,7 +112,7 @@ func (r *AzureK8sAutopilot) updateCollectCandidates(contextLogger *log.Entry, no
 	return
 }
 
-func (r *AzureK8sAutopilot) updateNode(contextLogger *log.Entry, node *k8s.Node, nodeInfo *k8s.NodeInfo) error {
+func (r *AzureK8sAutopilot) updateNode(contextLogger *zap.SugaredLogger, node *k8s.Node, nodeInfo *k8s.NodeInfo) error {
 	// trigger Azure VMSS instance update
 	r.prometheus.update.count.WithLabelValues().Inc()
 
@@ -147,7 +147,7 @@ func (r *AzureK8sAutopilot) updateNode(contextLogger *log.Entry, node *k8s.Node,
 	return nil
 }
 
-func (r *AzureK8sAutopilot) updateNodeLock(contextLogger *log.Entry, node *k8s.Node, dur time.Duration) {
+func (r *AzureK8sAutopilot) updateNodeLock(contextLogger *zap.SugaredLogger, node *k8s.Node, dur time.Duration) {
 	if err := r.update.nodeLock.Add(node.Name, true, dur); err != nil {
 		contextLogger.Error(err)
 	}

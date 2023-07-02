@@ -4,14 +4,14 @@ import (
 	"time"
 
 	"github.com/jinzhu/copier"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 
 	"github.com/webdevopos/azure-k8s-autopilot/config"
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
 )
 
 // trigger drain node
-func (r *AzureK8sAutopilot) k8sDrainNode(contextLogger *log.Entry, node *k8s.Node) error {
+func (r *AzureK8sAutopilot) k8sDrainNode(contextLogger *zap.SugaredLogger, node *k8s.Node) error {
 	if !r.Config.Drain.Enable {
 		contextLogger.Infof("not draining node %s, disable", node.Name)
 		return nil
@@ -55,7 +55,7 @@ func (r *AzureK8sAutopilot) k8sDrainNode(contextLogger *log.Entry, node *k8s.Nod
 }
 
 // trigger uncordon node
-func (r *AzureK8sAutopilot) k8sUncordonNode(contextLogger *log.Entry, node *k8s.Node) error {
+func (r *AzureK8sAutopilot) k8sUncordonNode(contextLogger *zap.SugaredLogger, node *k8s.Node) error {
 	kubectl := k8s.Kubectl{}
 	kubectl.Conf = r.Config.Drain
 	kubectl.SetNode(node.Name)

@@ -3,12 +3,17 @@ package config
 import (
 	"encoding/json"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type (
 	Opts struct {
+		// logger
+		Logger struct {
+			Debug       bool `long:"log.debug"    env:"LOG_DEBUG"  description:"debug mode"`
+			Development bool `long:"log.devel"    env:"LOG_DEVEL"  description:"development mode"`
+			Json        bool `long:"log.json"     env:"LOG_JSON"   description:"Switch log output to json format"`
+		}
+
 		// general settings
 		DryRun bool `long:"dry-run"           env:"DRY_RUN"   description:"Dry run (no redeploy triggered)"`
 
@@ -22,13 +27,6 @@ type (
 		// azure
 		Azure struct {
 			Environment *string `long:"azure.environment"            env:"AZURE_ENVIRONMENT"                description:"Azure environment name" default:"AZUREPUBLICCLOUD"`
-		}
-
-		// logger
-		Logger struct {
-			Debug   bool `           long:"debug"        env:"DEBUG"    description:"debug mode"`
-			Verbose bool `short:"v"  long:"verbose"      env:"VERBOSE"  description:"verbose mode"`
-			LogJson bool `           long:"log.json"     env:"LOG_JSON" description:"Switch log output to json format"`
 		}
 
 		Autoscaler struct {
@@ -111,7 +109,7 @@ type (
 func (o *Opts) GetJson() []byte {
 	jsonBytes, err := json.Marshal(o)
 	if err != nil {
-		log.Panic(err)
+		panic(err)
 	}
 	return jsonBytes
 }

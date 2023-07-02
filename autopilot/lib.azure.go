@@ -5,13 +5,13 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
 )
 
 // trigger VMSS repair task
-func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *log.Entry, nodeInfo k8s.NodeInfo) error {
+func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *zap.SugaredLogger, nodeInfo k8s.NodeInfo) error {
 	vmssClient, err := armcompute.NewVirtualMachineScaleSetsClient(nodeInfo.Subscription, r.azureClient.GetCred(), r.azureClient.NewArmClientOptions())
 	if err != nil {
 		return err
@@ -97,7 +97,7 @@ func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *log.Entry, no
 	return nil
 }
 
-func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *log.Entry, nodeInfo k8s.NodeInfo) error {
+func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *zap.SugaredLogger, nodeInfo k8s.NodeInfo) error {
 	var err error
 
 	client, err := armcompute.NewVirtualMachinesClient(nodeInfo.Subscription, r.azureClient.GetCred(), r.azureClient.NewArmClientOptions())
@@ -144,7 +144,7 @@ func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *log.Entry, nodeInfo k8s
 }
 
 // trigger VMSS instance update
-func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *log.Entry, node *k8s.Node, nodeInfo k8s.NodeInfo, doReimage bool) error {
+func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *zap.SugaredLogger, node *k8s.Node, nodeInfo k8s.NodeInfo, doReimage bool) error {
 	var err error
 
 	vmssClient, err := armcompute.NewVirtualMachineScaleSetsClient(nodeInfo.Subscription, r.azureClient.GetCred(), r.azureClient.NewArmClientOptions())

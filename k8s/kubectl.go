@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"os/exec"
 
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapio"
 
 	"github.com/webdevopos/azure-k8s-autopilot/config"
 )
@@ -12,7 +13,7 @@ import (
 type (
 	Kubectl struct {
 		nodeName string
-		logger   *log.Entry
+		logger   *zap.SugaredLogger
 
 		Conf config.OptsDrain
 	}
@@ -22,7 +23,7 @@ func (k *Kubectl) SetNode(nodeName string) {
 	k.nodeName = nodeName
 }
 
-func (k *Kubectl) SetLogger(logger *log.Entry) {
+func (k *Kubectl) SetLogger(logger *zap.SugaredLogger) {
 	k.logger = logger
 }
 
@@ -68,13 +69,22 @@ func (k *Kubectl) exec(args ...string) error {
 		args = append(args, "--dry-run")
 	}
 
-	return k.runComand(exec.Command(k.Conf.KubectlPath, args...)) //#nosec G204
+	return k.runComand(exec.Command(k.Conf.KubectlPath, args...)) // #nosec G204
 }
 
 func (k *Kubectl) runComand(cmd *exec.Cmd) (err error) {
+	cmdLogger := k.logger.With(zap.String("command", "kubectl")).Desugar()
+	cmdLogger = cmdLogger.WithOptions(zap.AddStacktrace(zap.PanicLevel), zap.WithCaller(false))
 	k.logger.Debugf("EXEC: %v", cmd.String())
-	cmd.Stdout = k.logger.Writer()
-	cmd.Stderr = k.logger.Writer()
+
+	stdOutWriter := &zapio.Writer{Log: cmdLogger, Level: zap.InfoLevel}
+	defer stdOutWriter.Close()
+
+	stdErrWriter := &zapio.Writer{Log: cmdLogger, Level: zap.ErrorLevel}
+	defer stdErrWriter.Close()
+
+	cmd.Stdout = stdOutWriter
+	cmd.Stderr = stdErrWriter
 	if cmdErr := cmd.Run(); cmdErr != nil {
 		err = cmdErr
 	}
