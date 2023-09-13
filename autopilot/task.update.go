@@ -31,7 +31,7 @@ func (r *AzureK8sAutopilot) updateRun(contextLogger *zap.SugaredLogger) {
 		return
 	}
 
-	if !r.DryRun {
+	if !r.Config.DryRun {
 		for _, node := range candidateList {
 			// concurrency update limit
 			if r.Config.Update.Limit > 0 && r.update.nodeLock.ItemCount() >= r.Config.Update.Limit {
