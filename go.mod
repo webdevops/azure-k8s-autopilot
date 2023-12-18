@@ -1,6 +1,6 @@
 module github.com/webdevopos/azure-k8s-autopilot
 
-go 1.20
+go 1.21
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute v1.0.0
