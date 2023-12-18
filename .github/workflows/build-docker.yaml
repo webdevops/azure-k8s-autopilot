@@ -32,24 +32,9 @@ jobs:
       matrix:
         include:
           - Dockerfile: Dockerfile
-            target: "final-ubuntu"
+            target: "final-static"
             suffix: ""
             latest: "auto"
-
-          - Dockerfile: Dockerfile
-            target: "final-alpine"
-            suffix: "-alpine"
-            latest: false
-
-          - Dockerfile: Dockerfile
-            target: "final-kubernetes"
-            suffix: "-kubernetes"
-            latest: false
-
-          - Dockerfile: Dockerfile
-            target: "final-distroless"
-            suffix: "-distroless"
-            latest: false
 
     runs-on: ubuntu-latest
     steps:
