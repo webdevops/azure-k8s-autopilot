@@ -38,7 +38,8 @@ RUN ["./kubectl", "version", "--client=true", "--output=yaml"]
 # Final
 #############################################
 FROM gcr.io/distroless/static as final-static
-ENV LOG_JSON=1
+ENV LOG_JSON=1 \
+    LEASE_ENABLE=true
 WORKDIR /
 COPY --from=test /app .
 USER 1000:1000
