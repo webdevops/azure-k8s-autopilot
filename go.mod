@@ -14,8 +14,8 @@ require (
 	github.com/webdevops/go-common v0.0.0-20231212211339-afe7e1672aa1
 	go.uber.org/zap v1.26.0
 	golang.org/x/net v0.19.0
-	k8s.io/api v0.29.0
-	k8s.io/apimachinery v0.29.0
+	k8s.io/api v0.29.1
+	k8s.io/apimachinery v0.29.1
 	k8s.io/client-go v0.29.0
 )
 
