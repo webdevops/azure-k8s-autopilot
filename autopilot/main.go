@@ -29,8 +29,6 @@ import (
 
 type (
 	AzureK8sAutopilot struct {
-		DryRun bool
-
 		ctx    context.Context
 		Config config.Opts
 

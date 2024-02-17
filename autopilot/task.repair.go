@@ -65,7 +65,7 @@ func (r *AzureK8sAutopilot) repairRun(contextLogger *zap.SugaredLogger) {
 				continue
 			}
 
-			if r.DryRun {
+			if r.Config.DryRun {
 				nodeContextLogger.Infof("node %s repair skipped, dry run", node.Name)
 				if err := r.repair.nodeLock.Add(node.Name, true, r.Config.Repair.LockDuration); err != nil {
 					nodeContextLogger.Error(err)
