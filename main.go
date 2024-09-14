@@ -35,6 +35,7 @@ var (
 func main() {
 	initArgparser()
 	initLogger()
+	initSystem()
 
 	logger.Infof("starting azure-k8s-autopilot v%s (%s; %s; by %v)", gitTag, gitCommit, runtime.Version(), Author)
 	logger.Info(string(Opts.GetJson()))
@@ -77,7 +78,7 @@ func initArgparser() {
 	}
 
 	if val := os.Getenv("DRAIN_DELETE_LOCAL_DATA"); val != "" {
-		logger.Panic("env var DRAIN_DELETE_LOCAL_DATA is deprecated, please use DRAIN_DELETE_EMPTYDIR_DATA")
+		panic("env var DRAIN_DELETE_LOCAL_DATA is deprecated, please use DRAIN_DELETE_EMPTYDIR_DATA")
 	}
 }
 
