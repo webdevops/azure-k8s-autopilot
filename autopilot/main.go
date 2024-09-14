@@ -22,6 +22,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/go-logr/zapr"
 
 	"github.com/webdevopos/azure-k8s-autopilot/config"
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
@@ -160,6 +163,8 @@ func (r *AzureK8sAutopilot) initK8s() {
 	if err != nil {
 		panic(err.Error())
 	}
+
+	log.SetLogger(zapr.NewLogger(r.Logger.Desugar()))
 }
 
 func (r *AzureK8sAutopilot) initMetricsGeneral() {

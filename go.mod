@@ -7,6 +7,7 @@ require (
 	github.com/KimMachineGun/automemlimit v0.6.1
 	github.com/containrrr/shoutrrr v0.8.0
 	github.com/dustin/go-humanize v1.0.1
+	github.com/go-logr/zapr v1.3.0
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/jinzhu/copier v0.4.0
 	github.com/operator-framework/operator-lib v0.15.0
@@ -20,6 +21,7 @@ require (
 	k8s.io/api v0.31.1
 	k8s.io/apimachinery v0.31.1
 	k8s.io/client-go v0.31.1
+	sigs.k8s.io/controller-runtime v0.19.0
 )
 
 require (
@@ -89,7 +91,6 @@ require (
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240903163716-9e1beecbcb38 // indirect
 	k8s.io/utils v0.0.0-20240902221715-702e33fdd3c3 // indirect
-	sigs.k8s.io/controller-runtime v0.19.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
