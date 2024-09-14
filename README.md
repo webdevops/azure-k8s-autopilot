@@ -44,9 +44,9 @@ Application Options:
                                                                    (default: 10m) [$REPAIR_NOTREADY_THRESHOLD]
       --repair.concurrency=                                        How many VMs should be redeployed concurrently (default: 1)
                                                                    [$REPAIR_CONCURRENCY]
-      --repair.lock-duration=                                      Duration how long should be waited for another redeploy (default: 30m)
+      --repair.lock-duration=                                      Duration how long should be waited for another redeploy on the same node (default: 30m)
                                                                    [$REPAIR_LOCK_DURATION]
-      --repair.lock-duration-error=                                Duration how long should be waited for another redeploy in case an error
+      --repair.lock-duration-error=                                Duration how long should be waited for another redeploy on the same node in case an error
                                                                    occurred (default: 5m) [$REPAIR_LOCK_DURATION_ERROR]
       --repair.azure.vmss.action=[restart|redeploy|reimage|delete] Defines the action which should be tried to repair the node (VMSS)
                                                                    (default: redeploy) [$REPAIR_AZURE_VMSS_ACTION]
@@ -60,9 +60,9 @@ Application Options:
       --update.crontab=                                            Crontab of check runs (default: @every 15m) [$UPDATE_CRONTAB]
       --update.concurrency=                                        How many VMs should be updated concurrently (default: 1)
                                                                    [$UPDATE_CONCURRENCY]
-      --update.lock-duration=                                      Duration how long should be waited for another update (default: 15m)
+      --update.lock-duration=                                      Duration how long should be waited for another update on the same node (default: 15m)
                                                                    [$UPDATE_LOCK_DURATION]
-      --update.lock-duration-error=                                Duration how long should be waited for another update in case an error
+      --update.lock-duration-error=                                Duration how long should be waited for another update on the same node in case an error
                                                                    occurred (default: 5m) [$UPDATE_LOCK_DURATION_ERROR]
       --update.lock-annotation=                                    Node annotation for update lock time (default:
                                                                    autopilot.webdevops.io/update-lock) [$UPDATE_LOCK_ANNOTATION]
