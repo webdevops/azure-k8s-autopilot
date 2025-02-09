@@ -35,10 +35,10 @@ var (
 func main() {
 	initArgparser()
 	initLogger()
-	initSystem()
 
 	logger.Infof("starting azure-k8s-autopilot v%s (%s; %s; by %v)", gitTag, gitCommit, runtime.Version(), Author)
 	logger.Info(string(Opts.GetJson()))
+	initSystem()
 
 	pilot := autopilot.AzureK8sAutopilot{
 		Config:    Opts,
