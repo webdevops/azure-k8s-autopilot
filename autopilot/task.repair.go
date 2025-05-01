@@ -46,7 +46,7 @@ func (r *AzureK8sAutopilot) repairRun(contextLogger *zap.SugaredLogger) {
 
 			// redeploy timeout lock
 			if _, expiry, exists := r.repair.nodeLock.GetWithExpiration(node.Name); exists {
-				nodeContextLogger.Infof("detected unhealthy node %s (last heartbeat: %s), locked (relased in %v)", node.Name, nodeLastHeartbeatText, expiry.Sub(time.Now())) //nolint:gosimple
+				nodeContextLogger.Infof("detected unhealthy node %s (last heartbeat: %s), locked (relased in %v)", node.Name, nodeLastHeartbeatText, time.Until(expiry)) //nolint:gosimple
 				continue
 			}
 
