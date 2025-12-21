@@ -10,8 +10,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/patrickmn/go-cache"
 	"github.com/webdevops/go-common/azuresdk/armclient"
+	"github.com/webdevops/go-common/log/slogger"
 	"github.com/webdevops/go-common/utils/to"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -28,7 +28,7 @@ type (
 
 		UserAgent string
 
-		Logger *zap.SugaredLogger
+		Logger *slogger.Logger
 
 		nodeWatcher watch.Interface
 		azureCache  *cache.Cache
@@ -89,7 +89,7 @@ func (n *NodeList) startNodeWatch() error {
 	}
 	nodeWatcher, err := n.Client.CoreV1().Nodes().Watch(n.ctx, watchOpts)
 	if err != nil {
-		n.Logger.Panic(err)
+		n.Logger.Panic(err.Error())
 	}
 	n.nodeWatcher = nodeWatcher
 	defer nodeWatcher.Stop()

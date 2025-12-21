@@ -1,19 +1,22 @@
 package autopilot
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/jinzhu/copier"
-	"go.uber.org/zap"
+	"github.com/webdevops/go-common/log/slogger"
 
 	"github.com/webdevopos/azure-k8s-autopilot/config"
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
 )
 
 // trigger drain node
-func (r *AzureK8sAutopilot) k8sDrainNode(contextLogger *zap.SugaredLogger, node *k8s.Node) error {
+func (r *AzureK8sAutopilot) k8sDrainNode(logger *slogger.Logger, node *k8s.Node) error {
+	nodeLogger := logger.With(slog.String("node", node.Name))
+
 	if !r.Config.Drain.Enable {
-		contextLogger.Infof("not draining node %s, disable", node.Name)
+		nodeLogger.Info("not draining node (disabled)")
 		return nil
 	}
 
@@ -26,7 +29,7 @@ func (r *AzureK8sAutopilot) k8sDrainNode(contextLogger *zap.SugaredLogger, node 
 	kubectl := k8s.Kubectl{}
 	kubectl.Conf = drainOpts
 	kubectl.SetNode(node.Name)
-	kubectl.SetLogger(contextLogger)
+	kubectl.SetLogger(nodeLogger)
 	err := kubectl.NodeDrain()
 
 	// retry drain if first one failed
@@ -36,18 +39,18 @@ func (r *AzureK8sAutopilot) k8sDrainNode(contextLogger *zap.SugaredLogger, node 
 		kubectl := k8s.Kubectl{}
 		kubectl.Conf = drainOpts
 		kubectl.SetNode(node.Name)
-		kubectl.SetLogger(contextLogger)
+		kubectl.SetLogger(nodeLogger)
 		err = kubectl.NodeDrain()
 	}
 
 	// ignore error
 	if err != nil && r.Config.Drain.IgnoreFailure {
-		contextLogger.Warnf("failed to drain node %s, but ignoring error: %v", node.Name, err.Error())
+		nodeLogger.Warn("failed to drain node, but ignoring error", slog.Any("error", err))
 		err = nil
 	}
 
 	if err == nil {
-		contextLogger.Infof("waiting %s after drain of node %s", r.Config.Drain.WaitAfter.String(), node.Name)
+		nodeLogger.Info("waiting after drain", slog.Duration("waitTime", r.Config.Drain.WaitAfter))
 		time.Sleep(r.Config.Drain.WaitAfter)
 	}
 
@@ -55,7 +58,7 @@ func (r *AzureK8sAutopilot) k8sDrainNode(contextLogger *zap.SugaredLogger, node 
 }
 
 // trigger uncordon node
-func (r *AzureK8sAutopilot) k8sUncordonNode(contextLogger *zap.SugaredLogger, node *k8s.Node) error {
+func (r *AzureK8sAutopilot) k8sUncordonNode(contextLogger *slogger.Logger, node *k8s.Node) error {
 	kubectl := k8s.Kubectl{}
 	kubectl.Conf = r.Config.Drain
 	kubectl.SetNode(node.Name)

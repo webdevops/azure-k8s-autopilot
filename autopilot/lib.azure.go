@@ -2,16 +2,17 @@ package autopilot
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
-	"go.uber.org/zap"
+	"github.com/webdevops/go-common/log/slogger"
 
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
 )
 
 // trigger VMSS repair task
-func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *zap.SugaredLogger, nodeInfo k8s.NodeInfo) error {
+func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *slogger.Logger, nodeInfo k8s.NodeInfo) error {
 	vmssClient, err := armcompute.NewVirtualMachineScaleSetsClient(nodeInfo.Subscription, r.azureClient.GetCred(), r.azureClient.NewArmClientOptions())
 	if err != nil {
 		return err
@@ -33,7 +34,7 @@ func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *zap.SugaredLo
 		return err
 	}
 
-	contextLogger.Infof("scheduling Azure VMSS instance for %s: %s", r.Config.Repair.AzureVmssAction, nodeInfo.ProviderId)
+	contextLogger.Info("scheduling action for Azure VMSS instance", slog.String("action", r.Config.Repair.AzureVmssAction), slog.String("providerID", nodeInfo.ProviderId))
 	r.sendNotificationf("trigger automatic repair of K8s node %v (action: %v)", nodeInfo.NodeName, r.Config.Repair.AzureVmssAction)
 
 	// trigger repair
@@ -97,7 +98,7 @@ func (r *AzureK8sAutopilot) azureVmssInstanceRepair(contextLogger *zap.SugaredLo
 	return nil
 }
 
-func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *zap.SugaredLogger, nodeInfo k8s.NodeInfo) error {
+func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *slogger.Logger, nodeInfo k8s.NodeInfo) error {
 	var err error
 
 	client, err := armcompute.NewVirtualMachinesClient(nodeInfo.Subscription, r.azureClient.GetCred(), r.azureClient.NewArmClientOptions())
@@ -116,7 +117,7 @@ func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *zap.SugaredLogger, node
 		return err
 	}
 
-	contextLogger.Infof("scheduling Azure VM for %s: %s", r.Config.Repair.AzureVmAction, nodeInfo.ProviderId)
+	contextLogger.Info("scheduling action for Azure VM", slog.String("action", r.Config.Repair.AzureVmAction), slog.String("providerID", nodeInfo.ProviderId))
 	r.sendNotificationf("trigger automatic repair of K8s node %v (action: %v)", nodeInfo.NodeName, r.Config.Repair.AzureVmAction)
 
 	switch r.Config.Repair.AzureVmAction {
@@ -144,7 +145,7 @@ func (r *AzureK8sAutopilot) azureVmRepair(contextLogger *zap.SugaredLogger, node
 }
 
 // trigger VMSS instance update
-func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *zap.SugaredLogger, node *k8s.Node, nodeInfo k8s.NodeInfo, doReimage bool) error {
+func (r *AzureK8sAutopilot) azureVmssInstanceUpdate(contextLogger *slogger.Logger, node *k8s.Node, nodeInfo k8s.NodeInfo, doReimage bool) error {
 	var err error
 
 	vmssClient, err := armcompute.NewVirtualMachineScaleSetsClient(nodeInfo.Subscription, r.azureClient.GetCred(), r.azureClient.NewArmClientOptions())

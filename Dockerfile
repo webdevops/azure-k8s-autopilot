@@ -1,7 +1,7 @@
 #############################################
 # Build
 #############################################
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS build
 
 RUN apk upgrade --no-cache --force
 RUN apk add --update build-base make git curl
@@ -14,6 +14,7 @@ RUN go mod download
 
 COPY . .
 RUN make test
+RUN make build # warmup
 ARG TARGETOS TARGETARCH
 
 # kubectl
@@ -33,6 +34,16 @@ COPY --from=build /go/src/github.com/webdevops/azure-k8s-autopilot/azure-k8s-aut
 COPY --from=build /go/src/github.com/webdevops/azure-k8s-autopilot/kubectl .
 RUN ["./azure-k8s-autopilot", "--help"]
 RUN ["./kubectl", "version", "--client=true", "--output=yaml"]
+
+#############################################
+# final-azcli
+#############################################
+FROM mcr.microsoft.com/azure-cli AS final-azcli
+ENV LOG_JSON=1
+WORKDIR /
+COPY --from=test /app .
+USER 1000:1000
+ENTRYPOINT ["/azure-k8s-autopilot"]
 
 #############################################
 # Final

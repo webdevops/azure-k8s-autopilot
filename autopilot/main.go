@@ -1,21 +1,23 @@
 package autopilot
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/containrrr/shoutrrr"
+	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-lib/leader"
 	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 	cron "github.com/robfig/cron/v3"
 	"github.com/webdevops/go-common/azuresdk/armclient"
 	"github.com/webdevops/go-common/azuresdk/azidentity"
-	"go.uber.org/zap"
-	"golang.org/x/net/context"
+	"github.com/webdevops/go-common/log/slogger"
 	"k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -23,8 +25,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/go-logr/zapr"
 
 	"github.com/webdevopos/azure-k8s-autopilot/config"
 	"github.com/webdevopos/azure-k8s-autopilot/k8s"
@@ -37,7 +37,7 @@ type (
 
 		UserAgent string
 
-		Logger *zap.SugaredLogger
+		Logger *slogger.Logger
 
 		cron struct {
 			repair *cron.Cron
@@ -82,12 +82,12 @@ type (
 	}
 
 	AzureK8sAutopilotLogger struct {
-		logger *zap.SugaredLogger
+		logger *slogger.Logger
 	}
 )
 
 func (l *AzureK8sAutopilotLogger) Printf(msg string, args ...any) {
-	l.logger.Infof(msg, args)
+	l.logger.Infof(msg, args...)
 }
 
 func (r *AzureK8sAutopilot) Init() {
@@ -129,7 +129,7 @@ func (r *AzureK8sAutopilot) initAzure() {
 		}
 	}
 
-	r.azureClient, err = armclient.NewArmClientFromEnvironment(r.Logger)
+	r.azureClient, err = armclient.NewArmClientFromEnvironment(r.Logger.Slog())
 	if err != nil {
 		r.Logger.Panic(err.Error())
 	}
@@ -164,7 +164,13 @@ func (r *AzureK8sAutopilot) initK8s() {
 		panic(err.Error())
 	}
 
-	log.SetLogger(zapr.NewLogger(r.Logger.Desugar()))
+	// kube logger (with translator)
+	logrHandler := logr.NewContextWithSlogLogger(context.Background(), r.Logger.Slog())
+	kubeLogger, err := logr.FromContext(logrHandler)
+	if err != nil {
+		panic(err.Error())
+	}
+	log.SetLogger(kubeLogger)
 }
 
 func (r *AzureK8sAutopilot) initMetricsGeneral() {
@@ -292,7 +298,7 @@ func (r *AzureK8sAutopilot) startAutopilotRepair() {
 		r.wg.Add(1)
 		defer r.wg.Done()
 
-		contextLogger := r.Logger.With(zap.String("job", "repair"))
+		contextLogger := r.Logger.With(slog.String("job", "repair"))
 
 		// update node lock cache
 		r.syncNodeLockCache(contextLogger, r.nodeList.NodeList(), r.Config.Repair.NodeLockAnnotation, r.repair.nodeLock)
@@ -302,15 +308,15 @@ func (r *AzureK8sAutopilot) startAutopilotRepair() {
 			contextLogger.Infof("concurrent repair limit reached, skipping run")
 		} else {
 			start := time.Now()
-			contextLogger.Infoln("starting repair check")
+			contextLogger.Info("starting repair check")
 			r.repairRun(contextLogger)
 			runtime := time.Since(start)
 			r.prometheus.repair.duration.WithLabelValues().Set(runtime.Seconds())
-			contextLogger.With(zap.Float64("duration", runtime.Seconds())).Infof("finished after %s", runtime.String())
+			contextLogger.With(slog.Float64("duration", runtime.Seconds())).Infof("finished after %s", runtime.String())
 		}
 	})
 	if err != nil {
-		r.Logger.Panic(err)
+		r.Logger.Panic(err.Error())
 	}
 
 	r.cron.repair.Start()
@@ -331,7 +337,7 @@ func (r *AzureK8sAutopilot) startAutopilotUpdate() {
 		r.wg.Add(1)
 		defer r.wg.Done()
 
-		contextLogger := r.Logger.With(zap.String("job", "update"))
+		contextLogger := r.Logger.With(slog.String("job", "update"))
 
 		// automatic remove cordon state on nodes
 		r.autoUncordonExpiredNodes(contextLogger, r.nodeList.NodeList(), r.Config.Update.NodeLockAnnotation)
@@ -343,16 +349,16 @@ func (r *AzureK8sAutopilot) startAutopilotUpdate() {
 		if r.Config.Update.Limit > 0 && r.update.nodeLock.ItemCount() >= r.Config.Update.Limit {
 			contextLogger.Infof("concurrent update limit reached, skipping run")
 		} else {
-			contextLogger.Infoln("starting update check")
+			contextLogger.Info("starting update check")
 			start := time.Now()
 			r.updateRun(contextLogger)
 			runtime := time.Since(start)
 			r.prometheus.update.duration.WithLabelValues().Set(runtime.Seconds())
-			contextLogger.With(zap.Float64("duration", runtime.Seconds())).Infof("finished after %s", runtime.String())
+			contextLogger.With(slog.Float64("duration", runtime.Seconds())).Infof("finished after %s", runtime.String())
 		}
 	})
 	if err != nil {
-		r.Logger.Panic(err)
+		r.Logger.Panic(err.Error())
 	}
 
 	r.cron.update.Start()
@@ -360,21 +366,21 @@ func (r *AzureK8sAutopilot) startAutopilotUpdate() {
 
 func (r *AzureK8sAutopilot) leaderElect() {
 	if r.Config.Lease.Enabled {
-		r.Logger.Info("trying to become leader")
+		r.Logger.Info("starting leader election")
 		if r.Config.Instance.Pod != nil && os.Getenv("POD_NAME") == "" {
 			err := os.Setenv("POD_NAME", *r.Config.Instance.Pod)
 			if err != nil {
-				r.Logger.Panic(err)
+				r.Logger.Panic(err.Error())
 			}
 		}
 
 		time.Sleep(15 * time.Second)
 		err := leader.Become(r.ctx, r.Config.Lease.Name)
 		if err != nil {
-			r.Logger.Error(err, "Failed to retry for leader lock")
+			r.Logger.Error("failed to retry for leader lock", slog.Any("error", err))
 			os.Exit(1)
 		}
-		r.Logger.Info("aquired leader lock, continue")
+		r.Logger.Info("acquired leader lock, continue")
 	}
 }
 
@@ -401,7 +407,7 @@ func (r *AzureK8sAutopilot) checkSelfEviction(node *k8s.Node) bool {
 		}
 		err := r.k8sClient.CoreV1().Pods(*r.Config.Instance.Namespace).Evict(r.ctx, &eviction)
 		if err != nil {
-			r.Logger.Errorf("unable to evict instance: %v", err)
+			r.Logger.Error("unable to evict instance", slog.Any("error", err))
 		}
 		return true
 	}
@@ -424,9 +430,9 @@ func (r *AzureK8sAutopilot) sendNotification(message string) {
 	}
 }
 
-func (r *AzureK8sAutopilot) syncNodeLockCache(contextLogger *zap.SugaredLogger, nodeList []*k8s.Node, annotationName string, cacheLock *cache.Cache) {
+func (r *AzureK8sAutopilot) syncNodeLockCache(contextLogger *slogger.Logger, nodeList []*k8s.Node, annotationName string, cacheLock *cache.Cache) {
 	// lock cache clear
-	contextLogger.Debugf("sync node lock cache for annotation %s", annotationName)
+	contextLogger.Debug("sync node lock cache for annotation", slog.String("annotation", annotationName))
 	cacheLock.Flush()
 
 	for _, node := range nodeList {
@@ -434,18 +440,18 @@ func (r *AzureK8sAutopilot) syncNodeLockCache(contextLogger *zap.SugaredLogger, 
 			// check if annotation is valid and if node status is ok
 			if lockDuration == nil || lockDuration.Seconds() <= 0 {
 				// remove annotation
-				contextLogger.Debugf("removing lock annotation \"%s\" from node %s", annotationName, node.Name)
+				contextLogger.Debug("removing lock annotation from node", slog.String("annotation", annotationName), slog.String("node", node.Name))
 				if err := node.AnnotationLockRemove(annotationName); err != nil {
-					contextLogger.Error(err)
+					contextLogger.Error(err.Error())
 				}
 				continue
 			}
 
 			// add to lock cache
-			contextLogger.Debugf("found existing lock \"%s\" for node %s, duration: %s", annotationName, node.Name, lockDuration.String())
+			contextLogger.Debug("found existing lock for node", slog.String("annotation", annotationName), slog.String("node", node.Name), slog.Duration("lock", *lockDuration))
 			// lock vm for next redeploy, can take up to 15 mins
 			if err := cacheLock.Add(node.Name, true, *lockDuration); err != nil {
-				contextLogger.Error(err)
+				contextLogger.Error(err.Error())
 			}
 		} else {
 			cacheLock.Delete(node.Name)
@@ -455,7 +461,7 @@ func (r *AzureK8sAutopilot) syncNodeLockCache(contextLogger *zap.SugaredLogger, 
 	cacheLock.DeleteExpired()
 }
 
-func (r *AzureK8sAutopilot) autoUncordonExpiredNodes(contextLogger *zap.SugaredLogger, nodeList []*k8s.Node, annotationName string) {
+func (r *AzureK8sAutopilot) autoUncordonExpiredNodes(contextLogger *slogger.Logger, nodeList []*k8s.Node, annotationName string) {
 	// lock cache clear
 	contextLogger.Debugf("checking expired but still cordoned nodes for annotation \"%s\"", annotationName)
 
@@ -465,11 +471,11 @@ func (r *AzureK8sAutopilot) autoUncordonExpiredNodes(contextLogger *zap.SugaredL
 			if lockDuration == nil || lockDuration.Seconds() <= 0 {
 				// check if node is cordoned
 				if node.Spec.Unschedulable {
-					contextLogger.Infof("node %s is still cordoned, uncording it", node.Name)
+					contextLogger.Info("node is still cordoned, uncording it", slog.String("node", node.Name))
 
 					// uncordon node
 					if err := r.k8sUncordonNode(contextLogger, node); err != nil {
-						contextLogger.Errorf("node %s failed to uncordon: %v", node.Name, err)
+						contextLogger.Error("node uncordon failed", slog.String("node", node.Name), slog.Any("error", err))
 					}
 				}
 			}
