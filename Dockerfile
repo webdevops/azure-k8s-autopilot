@@ -1,7 +1,7 @@
 #############################################
 # Build
 #############################################
-FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
 
 RUN apk upgrade --no-cache --force
 RUN apk add --update build-base make git curl
@@ -38,7 +38,7 @@ RUN ["./kubectl", "version", "--client=true", "--output=yaml"]
 # final-azcli
 #############################################
 FROM mcr.microsoft.com/azure-cli AS final-azcli
-ENV LOG_JSON=1
+ENV LOG_FORMAT=json
 WORKDIR /
 COPY --from=test /app .
 USER 1000:1000
@@ -48,7 +48,7 @@ ENTRYPOINT ["/azure-k8s-autopilot"]
 # Final
 #############################################
 FROM gcr.io/distroless/static AS final-static
-ENV LOG_JSON=1 \
+ENV LOG_FORMAT=json \
     LEASE_ENABLE=true
 WORKDIR /
 COPY --from=test /app .
