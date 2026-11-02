@@ -16,9 +16,9 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/utkuozdemir/go-slogio v0.1.0
 	github.com/webdevops/go-common v0.0.0-20261020182825-f0fa1af415d3
-	k8s.io/api v0.37.1
-	k8s.io/apimachinery v0.37.1
-	k8s.io/client-go v0.37.1
+	k8s.io/api v0.37.2
+	k8s.io/apimachinery v0.37.2
+	k8s.io/client-go v0.37.2
 	sigs.k8s.io/controller-runtime v0.25.2
 )
 
